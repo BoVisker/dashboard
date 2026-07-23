@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Krachtdashboard — Bankdruk, Dips & Pull-ups</title>
+<!-- "Add to Home Screen" (iOS) / "Install as app" (Chrome, Safari "Add to Dock")
+     picks these up to launch without browser chrome, like a real app. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Krachtdashboard">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #787671;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --line-muted:     #96958d;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --series-1-wash:  rgba(42,120,214,0.12);
+    --accent-text:    #276fc6;
+    --status-good:    #0ca30c;
+    --status-warn:    #fab219;
+    --status-crit:    #d03b3b;
+    --card-bg:        #ffffff;
+    --deload-bg:      #fdf0dc;
+    --tip-bg:         #eef3fb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #8c8a84;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --line-muted:     #6d6d67;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-1-wash:  rgba(57,135,229,0.16);
+      --accent-text:    #3b8bec;
+      --status-good:    #0ca30c;
+      --status-warn:    #fab219;
+      --status-crit:    #e66767;
+      --card-bg:        #232322;
+      --deload-bg:      #332a17;
+      --tip-bg:         #17233a;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #8c8a84;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --line-muted:     #6d6d67;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-1-wash:  rgba(57,135,229,0.16);
+    --accent-text:    #3b8bec;
+    --status-good:    #0ca30c;
+    --status-warn:    #fab219;
+    --status-crit:    #e66767;
+    --card-bg:        #232322;
+    --deload-bg:      #332a17;
+    --tip-bg:         #17233a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  header.top { margin-bottom: 20px; }
+  header.top h1 { font-size: 24px; margin: 0 0 4px; }
+  header.top p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+
+  .syncbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 18px; font-size: 13px; color: var(--text-secondary);
+  }
+  .syncbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: none; }
+  .syncbar .dot.ok { background: var(--status-good); }
+  .syncbar .dot.err { background: var(--status-crit); }
+  .syncbar .dot.pending { background: var(--status-warn); }
+  .syncbar button {
+    margin-left: auto; border: 1px solid var(--border); background: transparent; color: var(--text-primary);
+    padding: 6px 14px; border-radius: 7px; font-size: 13px; cursor: pointer; font-family: inherit;
+    min-height: 44px; min-width: 44px;
+  }
+  .syncbar button:hover { background: var(--series-1-wash); }
+
+  /* tabs */
+  .tabnav { display: flex; gap: 6px; margin-bottom: 18px; border-bottom: 1px solid var(--border); }
+  .tabbtn {
+    border: none; background: transparent; color: var(--text-secondary); font-family: inherit;
+    font-size: 14px; font-weight: 600; padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; min-height: 44px;
+  }
+  .tabbtn[aria-selected="true"] { color: var(--accent-text); border-bottom-color: var(--series-1); }
+  .tabbtn .starbadge { font-size: 10px; background: var(--series-1-wash); color: var(--text-primary); padding: 2px 7px; border-radius: 999px; margin-left: 6px; font-weight: 700; }
+  .tabpanel { display: none; }
+  .tabpanel.active { display: block; }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  @media (max-width: 720px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .tile .value { font-size: 26px; font-weight: 600; }
+  .tile .sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600;
+    padding: 4px 10px 4px 8px; border-radius: 999px; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border);
+  }
+  .badge .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .badge.good .dot { background: var(--status-good); }
+  .badge.warn .dot { background: var(--status-warn); }
+  .badge.crit .dot { background: var(--status-crit); }
+  .badge.neutral .dot { background: var(--series-1); }
+
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; margin-bottom: 20px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card .cardsub { font-size: 13px; color: var(--text-secondary); margin: 0 0 14px; }
+
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; flex-wrap: wrap; }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .swatch { width: 18px; height: 3px; border-radius: 2px; }
+  .legend .swatch.target { background: repeating-linear-gradient(90deg, var(--line-muted) 0 6px, transparent 6px 10px); }
+  .legend .swatch.actual { background: var(--series-1); }
+
+  svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .axisline { stroke: var(--line-muted); stroke-width: 1; }
+  .axislabel { fill: var(--text-muted); font-size: 11px; }
+  .target-line { fill: none; stroke: var(--line-muted); stroke-width: 2; stroke-dasharray: 5 4; }
+  .actual-line { fill: none; stroke: var(--series-1); stroke-width: 2.5; }
+  .actual-dot { fill: var(--series-1); stroke: var(--card-bg); stroke-width: 1.5; cursor: pointer; }
+  .pr-dot { fill: var(--status-good); stroke: var(--card-bg); stroke-width: 1.5; cursor: pointer; }
+  .today-line { stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--text-primary); color: var(--card-bg);
+    font-size: 12px; padding: 6px 9px; border-radius: 6px; opacity: 0; transition: opacity .1s;
+    white-space: nowrap; z-index: 5;
+  }
+  .chartwrap { position: relative; }
+  .chart-table { margin-top: 10px; }
+  .chart-table summary {
+    cursor: pointer; font-size: 12px; color: var(--accent-text); font-weight: 600;
+    padding: 8px 4px; min-height: 44px; display: flex; align-items: center;
+  }
+  .chart-table table { margin-top: 6px; }
+
+  table.wtable { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.wtable th, table.wtable td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--gridline); }
+  table.wtable th { color: var(--text-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+  table.wtable tr.highlight-row td { font-weight: 600; }
+
+  .fallback { border: 1px dashed var(--border); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+  .fallback .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: flex-end; }
+  .fallback label { font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px; }
+  .fallback input, .fallback select {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    border-radius: 7px; padding: 7px 9px; font-size: 14px; width: 130px; font-family: inherit;
+    min-height: 44px;
+  }
+  .fallback button {
+    border: none; background: var(--series-1); color: #fff; padding: 8px 14px; border-radius: 7px;
+    font-size: 13px; cursor: pointer; font-family: inherit; min-height: 44px;
+  }
+  .note { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 20px 0; text-align: center; }
+
+  .tipcard { background: var(--tip-bg); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; border-left: 3px solid var(--series-1); }
+  .tipcard .tiplabel { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-text); font-weight: 700; margin-bottom: 6px; }
+  .tipcard p { margin: 0; font-size: 14px; line-height: 1.5; }
+  ul.statictips { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+
+  footer { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 28px; line-height: 1.6; }
+  a { color: var(--accent-text); }
+
+  .tabbtn:focus-visible, .syncbar button:focus-visible, .fallback button:focus-visible,
+  .fallback input:focus-visible, .fallback select:focus-visible, summary:focus-visible,
+  .actual-dot:focus-visible, .pr-dot:focus-visible {
+    outline: 2px solid var(--series-1); outline-offset: 2px;
+  }
+</style>
+</head>
+<body class="viz-root">
+<div class="wrap">
+
+  <header class="top">
+    <h1>Krachtdashboard</h1>
+    <p>Bankdrukken (80→100kg), Weighted Dips & Weighted Pull-ups · live gekoppeld aan Hevy</p>
+  </header>
+
+  <div class="syncbar" id="syncbar" role="status" aria-live="polite">
+    <div class="dot pending" id="syncdot" aria-hidden="true"></div>
+    <span id="syncstatus">Verbinden met Hevy…</span>
+    <button id="syncbtn">Ververs</button>
+  </div>
+
+  <div class="card" id="apiKeyCard" style="display:none;">
+    <h2>Hevy API-sleutel</h2>
+    <p class="cardsub">Deze sleutel wordt alleen opgeslagen op dít toestel (niet in het bestand zelf), zodat je dit bestand veilig kunt delen of hosten zonder je sleutel prijs te geven. Op elk nieuw toestel/browser vul je 'm één keer opnieuw in.</p>
+    <div class="fallback">
+      <div class="row">
+        <div style="flex:1 1 240px;">
+          <label for="apiKeyInput">API-sleutel</label>
+          <input type="password" id="apiKeyInput" style="width:100%;" placeholder="jouw Hevy API-sleutel" autocomplete="off">
+        </div>
+        <button id="apiKeyBtn">Opslaan &amp; synchroniseren</button>
+      </div>
+      <div class="note">Vind je sleutel in de Hevy-app onder Instellingen → API (Pro-account vereist).</div>
+    </div>
+  </div>
+
+  <main>
+
+  <nav class="tabnav" role="tablist" aria-label="Oefeningen">
+    <button class="tabbtn" id="tab-bench" data-tab="bench" role="tab" aria-selected="true" aria-controls="panel-bench" tabindex="0">Bankdrukken <span class="starbadge">hoofddoel</span></button>
+    <button class="tabbtn" id="tab-dips" data-tab="dips" role="tab" aria-selected="false" aria-controls="panel-dips" tabindex="-1">Weighted Dips</button>
+    <button class="tabbtn" id="tab-pullups" data-tab="pullups" role="tab" aria-selected="false" aria-controls="panel-pullups" tabindex="-1">Weighted Pull-ups</button>
+  </nav>
+
+  <!-- ================= BENCH TAB ================= -->
+  <div class="tabpanel active" id="panel-bench" role="tabpanel" aria-labelledby="tab-bench" tabindex="0">
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">Huidig geschat 1RM</div>
+        <div class="value" id="tileCurrent">–</div>
+        <div class="sub" id="tileCurrentSub">wachten op data</div>
+      </div>
+      <div class="tile">
+        <div class="label">Doel</div>
+        <div class="value">100 kg</div>
+        <div class="sub" id="tileDeadline">1 jan 2027</div>
+      </div>
+      <div class="tile">
+        <div class="label">Weken te gaan</div>
+        <div class="value" id="tileWeeks">–</div>
+        <div class="sub">tot 1 januari 2027</div>
+      </div>
+      <div class="tile">
+        <div class="label">Status</div>
+        <div class="value" id="tileStatus"><span class="badge warn"><span class="dot"></span>–</span></div>
+        <div class="sub" id="tileStatusSub">&nbsp;</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Bankdruk: doellijn vs. jouw voortgang</h2>
+      <p class="cardsub">Geschat 1RM (Epley-formule) per week, op basis van je zwaarste bankdruk-set uit Hevy.</p>
+      <div class="legend">
+        <div class="item"><span class="swatch target"></span> Doellijn (schema)</div>
+        <div class="item"><span class="swatch actual"></span> Jouw e1RM (Hevy)</div>
+      </div>
+      <div class="chartwrap" id="benchChartWrap"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tips voor bankdrukken</h2>
+      <div class="tipcard">
+        <div class="tiplabel">Gebaseerd op je laatste sessie</div>
+        <p id="benchTip">Nog geen data.</p>
+      </div>
+      <ul class="statictips">
+        <li>Zet je voeten stevig plat en creëer spanning met lichte beenaandrukking (leg drive).</li>
+        <li>Trek je schouderbladen samen en naar beneden voor een stabiele basis op de bank.</li>
+        <li>Laat de stang gecontroleerd zakken tot lichte aanraking van de borst — niet stuiteren.</li>
+        <li>Houd grip­breedte consistent tussen sessies, zodat vergelijkingen eerlijk blijven.</li>
+        <li>Adem in tijdens het zakken, zet de buik onder spanning (brace), adem uit tijdens het drukken.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= DIPS TAB ================= -->
+  <div class="tabpanel" id="panel-dips" role="tabpanel" aria-labelledby="tab-dips" tabindex="0">
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">Huidig (laatste sessie)</div>
+        <div class="value" id="dipsCurrent">–</div>
+        <div class="sub" id="dipsCurrentSub">wachten op data</div>
+      </div>
+      <div class="tile">
+        <div class="label">Persoonlijk record</div>
+        <div class="value" id="dipsPR">–</div>
+        <div class="sub" id="dipsPRSub">&nbsp;</div>
+      </div>
+      <div class="tile">
+        <div class="label">Laatste sessie</div>
+        <div class="value" id="dipsLastDate">–</div>
+        <div class="sub">datum</div>
+      </div>
+      <div class="tile">
+        <div class="label">Trend</div>
+        <div class="value" id="dipsTrend"><span class="badge neutral"><span class="dot"></span>–</span></div>
+        <div class="sub">t.o.v. vorige sessie</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Weighted Dips: voortgang</h2>
+      <p class="cardsub">Geen vast doel — dit volgt gewoon zo hoog mogelijk. Extra gewicht bovenop lichaamsgewicht, e1RM (Epley) per sessie.</p>
+      <div class="legend">
+        <div class="item"><span class="swatch actual"></span> Extra gewicht e1RM</div>
+      </div>
+      <div class="chartwrap" id="dipsChartWrap"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tips voor weighted dips</h2>
+      <div class="tipcard">
+        <div class="tiplabel">Gebaseerd op je laatste sessie</div>
+        <p id="dipsTip">Nog geen data.</p>
+      </div>
+      <ul class="statictips">
+        <li>Zak tot je schouders net onder je ellebogen komen voor een volledige range of motion.</li>
+        <li>Leun licht naar voren voor meer borst, blijf rechtop voor meer triceps — kies één stijl en houd 'm vast.</li>
+        <li>Gebruik een dipbelt voor extra gewicht, zodat je handen vrij blijven voor een stabiele grip.</li>
+        <li>Vermijd volledig doorstrekken met een 'klik' in de ellebogen bovenaan.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= PULL-UPS TAB ================= -->
+  <div class="tabpanel" id="panel-pullups" role="tabpanel" aria-labelledby="tab-pullups" tabindex="0">
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">Huidig (laatste sessie)</div>
+        <div class="value" id="pullupsCurrent">–</div>
+        <div class="sub" id="pullupsCurrentSub">wachten op data</div>
+      </div>
+      <div class="tile">
+        <div class="label">Persoonlijk record</div>
+        <div class="value" id="pullupsPR">–</div>
+        <div class="sub" id="pullupsPRSub">&nbsp;</div>
+      </div>
+      <div class="tile">
+        <div class="label">Laatste sessie</div>
+        <div class="value" id="pullupsLastDate">–</div>
+        <div class="sub">datum</div>
+      </div>
+      <div class="tile">
+        <div class="label">Trend</div>
+        <div class="value" id="pullupsTrend"><span class="badge neutral"><span class="dot"></span>–</span></div>
+        <div class="sub">t.o.v. vorige sessie</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Weighted Pull-ups: voortgang</h2>
+      <p class="cardsub">Geen vast doel — dit volgt gewoon zo hoog mogelijk. Extra gewicht bovenop lichaamsgewicht, e1RM (Epley) per sessie.</p>
+      <div class="legend">
+        <div class="item"><span class="swatch actual"></span> Extra gewicht e1RM</div>
+      </div>
+      <div class="chartwrap" id="pullupsChartWrap"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tips voor weighted pull-ups</h2>
+      <div class="tipcard">
+        <div class="tiplabel">Gebaseerd op je laatste sessie</div>
+        <p id="pullupsTip">Nog geen data.</p>
+      </div>
+      <ul class="statictips">
+        <li>Hang onderaan volledig uit met rechte armen, kin boven de stang bovenaan.</li>
+        <li>Voorkom kippen/zwaaien — bouw kracht op met gecontroleerde herhalingen.</li>
+        <li>Houd je hoofdgreep (bijv. pronated, schouderbreedte) consistent zodat voortgang eerlijk vergelijkbaar blijft.</li>
+        <li>Bouw extra gewicht rustig op — pols- en ellebooggewrichten passen zich langzamer aan dan je rug- en armspieren.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================= SHARED SECTIONS ================= -->
+  <div class="card">
+    <h2>Laatste workout</h2>
+    <p class="cardsub" id="lastWorkoutMeta">–</p>
+    <div id="lastWorkoutBody"><div class="empty">Nog geen data geladen.</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Lichaamsgewicht: doellijn</h2>
+    <p class="cardsub">70 → 80 kg in 42 weken. Hevy's publieke API levert geen gewichtsmetingen, dus vul je huidige gewicht hieronder in om je positie te zien.</p>
+    <div class="chartwrap" id="bwChartWrap"></div>
+    <div class="fallback">
+      <div class="row">
+        <div>
+          <label for="bwInput">Huidig gewicht (kg)</label>
+          <input type="number" id="bwInput" step="0.1" placeholder="70.0">
+        </div>
+        <button id="bwBtn">Toon op grafiek</button>
+      </div>
+      <div class="note" id="bwNote"></div>
+    </div>
+  </div>
+
+  <div class="card" id="fallbackCard" style="display:none;">
+    <h2>Handmatige invoer</h2>
+    <p class="cardsub">De live-koppeling met Hevy lukte niet (zie melding hierboven) of vond geen sets voor deze oefening. Vul je laatste topset handmatig in — dit werkt alleen voor deze weergave en wordt niet opgeslagen.</p>
+    <div class="fallback">
+      <div class="row">
+        <div>
+          <label for="manEx">Oefening</label>
+          <select id="manEx">
+            <option value="bench">Bankdrukken</option>
+            <option value="dips">Weighted Dips</option>
+            <option value="pullups">Weighted Pull-ups</option>
+          </select>
+        </div>
+        <div><label for="manW">Gewicht (kg)</label><input type="number" id="manW" step="1.25" placeholder="85"></div>
+        <div><label for="manR">Herhalingen</label><input type="number" id="manR" step="1" placeholder="3"></div>
+        <button id="manBtn">Toevoegen aan grafiek</button>
+      </div>
+    </div>
+  </div>
+
+  </main>
+
+  <footer>
+    Doellijn bankdrukken gebaseerd op het bankdrukplan (23 weken, juli 2026 – januari 2027). Dips en pull-ups hebben geen vast doel — het dashboard volgt gewoon je hoogste haalbare gewicht.
+    <br>Je Hevy API-sleutel wordt lokaal op dit toestel opgeslagen (niet in dit bestand) — dit bestand zelf bevat geen geheime gegevens en is dus veilig te delen of hosten.
+    <br>Laatste keer gebouwd: <span id="buildDate"></span>.
+  </footer>
+
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ---------- Embedded program data ---------- */
+const PLAN = {"rows": [{"week": 1, "phase": 1, "phase_name": "Basis & Volume", "deload": false, "top_reps": 5, "top_weight": 70.0, "e1rm_target": 80.7}, {"week": 2, "phase": 1, "phase_name": "Basis & Volume", "deload": false, "top_reps": 5, "top_weight": 70.0, "e1rm_target": 81.3}, {"week": 3, "phase": 1, "phase_name": "Basis & Volume", "deload": false, "top_reps": 5, "top_weight": 70.0, "e1rm_target": 82.0}, {"week": 4, "phase": 1, "phase_name": "Basis & Volume", "deload": false, "top_reps": 5, "top_weight": 70.0, "e1rm_target": 82.7}, {"week": 5, "phase": 1, "phase_name": "Basis & Volume", "deload": false, "top_reps": 5, "top_weight": 72.5, "e1rm_target": 83.3}, {"week": 6, "phase": 1, "phase_name": "Basis & Volume", "deload": true, "top_reps": 6, "top_weight": 55.0, "e1rm_target": 84.0}, {"week": 7, "phase": 2, "phase_name": "Kracht", "deload": false, "top_reps": 3, "top_weight": 77.5, "e1rm_target": 85.2}, {"week": 8, "phase": 2, "phase_name": "Kracht", "deload": false, "top_reps": 3, "top_weight": 77.5, "e1rm_target": 86.3}, {"week": 9, "phase": 2, "phase_name": "Kracht", "deload": false, "top_reps": 3, "top_weight": 80.0, "e1rm_target": 87.5}, {"week": 10, "phase": 2, "phase_name": "Kracht", "deload": false, "top_reps": 3, "top_weight": 80.0, "e1rm_target": 88.7}, {"week": 11, "phase": 2, "phase_name": "Kracht", "deload": false, "top_reps": 3, "top_weight": 82.5, "e1rm_target": 89.8}, {"week": 12, "phase": 2, "phase_name": "Kracht", "deload": true, "top_reps": 6, "top_weight": 60.0, "e1rm_target": 91.0}, {"week": 13, "phase": 3, "phase_name": "Peaking", "deload": false, "top_reps": 2, "top_weight": 85.0, "e1rm_target": 92.0}, {"week": 14, "phase": 3, "phase_name": "Peaking", "deload": false, "top_reps": 2, "top_weight": 87.5, "e1rm_target": 93.0}, {"week": 15, "phase": 3, "phase_name": "Peaking", "deload": false, "top_reps": 2, "top_weight": 87.5, "e1rm_target": 94.0}, {"week": 16, "phase": 3, "phase_name": "Peaking", "deload": false, "top_reps": 2, "top_weight": 90.0, "e1rm_target": 95.0}, {"week": 17, "phase": 3, "phase_name": "Peaking", "deload": false, "top_reps": 2, "top_weight": 90.0, "e1rm_target": 96.0}, {"week": 18, "phase": 3, "phase_name": "Peaking", "deload": true, "top_reps": 6, "top_weight": 65.0, "e1rm_target": 97.0}, {"week": 19, "phase": 4, "phase_name": "Taper & Piek", "deload": false, "top_reps": 1, "top_weight": 95.0, "e1rm_target": 97.8}, {"week": 20, "phase": 4, "phase_name": "Taper & Piek", "deload": false, "top_reps": 1, "top_weight": 95.0, "e1rm_target": 98.6}, {"week": 21, "phase": 4, "phase_name": "Taper & Piek", "deload": true, "top_reps": 6, "top_weight": 67.5, "e1rm_target": 99.4}, {"week": 22, "phase": 4, "phase_name": "Taper & Piek", "deload": false, "top_reps": 1, "top_weight": 97.5, "e1rm_target": 100.2}, {"week": 23, "phase": 4, "phase_name": "Taper & Piek", "deload": false, "top_reps": 1, "top_weight": 97.5, "e1rm_target": 101.0}], "bodyweight": [{"week": 0, "bodyweight_target": 70.0}, {"week": 1, "bodyweight_target": 70.2}, {"week": 2, "bodyweight_target": 70.5}, {"week": 3, "bodyweight_target": 70.7}, {"week": 4, "bodyweight_target": 71.0}, {"week": 5, "bodyweight_target": 71.2}, {"week": 6, "bodyweight_target": 71.4}, {"week": 7, "bodyweight_target": 71.7}, {"week": 8, "bodyweight_target": 71.9}, {"week": 9, "bodyweight_target": 72.1}, {"week": 10, "bodyweight_target": 72.4}, {"week": 11, "bodyweight_target": 72.6}, {"week": 12, "bodyweight_target": 72.9}, {"week": 13, "bodyweight_target": 73.1}, {"week": 14, "bodyweight_target": 73.3}, {"week": 15, "bodyweight_target": 73.6}, {"week": 16, "bodyweight_target": 73.8}, {"week": 17, "bodyweight_target": 74.0}, {"week": 18, "bodyweight_target": 74.3}, {"week": 19, "bodyweight_target": 74.5}, {"week": 20, "bodyweight_target": 74.8}, {"week": 21, "bodyweight_target": 75.0}, {"week": 22, "bodyweight_target": 75.2}, {"week": 23, "bodyweight_target": 75.5}, {"week": 24, "bodyweight_target": 75.7}, {"week": 25, "bodyweight_target": 76.0}, {"week": 26, "bodyweight_target": 76.2}, {"week": 27, "bodyweight_target": 76.4}, {"week": 28, "bodyweight_target": 76.7}, {"week": 29, "bodyweight_target": 76.9}, {"week": 30, "bodyweight_target": 77.1}, {"week": 31, "bodyweight_target": 77.4}, {"week": 32, "bodyweight_target": 77.6}, {"week": 33, "bodyweight_target": 77.9}, {"week": 34, "bodyweight_target": 78.1}, {"week": 35, "bodyweight_target": 78.3}, {"week": 36, "bodyweight_target": 78.6}, {"week": 37, "bodyweight_target": 78.8}, {"week": 38, "bodyweight_target": 79.0}, {"week": 39, "bodyweight_target": 79.3}, {"week": 40, "bodyweight_target": 79.5}, {"week": 41, "bodyweight_target": 79.8}, {"week": 42, "bodyweight_target": 80.0}]};
+
+const PROGRAM_START = new Date("2026-07-20T00:00:00");
+const GOAL_DATE = new Date("2027-01-01T00:00:00");
+const HEVY_BASE = "https://api.hevyapp.com/v1";
+const API_KEY_STORAGE = "hevyApiKey";
+
+function getApiKey() { return (localStorage.getItem(API_KEY_STORAGE) || "").trim(); }
+function setApiKey(k) { localStorage.setItem(API_KEY_STORAGE, k.trim()); }
+
+function matchBench(title) {
+  const t = (title || "").toLowerCase().trim();
+  if (!t.includes("bench press")) return false;
+  const exclude = ["incline", "decline", "close", "wide", "reverse", "dumbbell", "smith", "machine", "floor", "football", "spoto", "pin", "paused", "band", "chain", "single", "one arm", "swiss", "larsen"];
+  return !exclude.some(w => t.includes(w));
+}
+function matchDip(title) {
+  const t = (title || "").toLowerCase().trim();
+  if (!t.includes("dip")) return false;
+  if (!t.includes("weighted")) return false;
+  const exclude = ["bench dip", "assisted", "machine", "ring", "band"];
+  return !exclude.some(w => t.includes(w));
+}
+function matchPullup(title) {
+  const t = (title || "").toLowerCase().trim();
+  if (!/pull.?[\s-]?up/.test(t)) return false;
+  if (!t.includes("weighted")) return false;
+  const exclude = ["assisted", "machine", "band", "pulldown"];
+  return !exclude.some(w => t.includes(w));
+}
+
+const EXERCISES = {
+  bench:   { label: "Bankdrukken",       match: matchBench,  hasTarget: true,  range: null,    increment: 2.5 },
+  dips:    { label: "Weighted Dips",     match: matchDip,    hasTarget: false, range: [5, 8],  increment: 2.5 },
+  pullups: { label: "Weighted Pull-ups", match: matchPullup, hasTarget: false, range: [4, 7],  increment: 1.25 },
+};
+
+document.getElementById("buildDate").textContent = new Date().toLocaleDateString("nl-NL", {day:"numeric", month:"long", year:"numeric"});
+
+function weekFromDate(d) {
+  const ms = d - PROGRAM_START;
+  return Math.floor(ms / (7*24*3600*1000)) + 1;
+}
+function epley(weight, reps) {
+  return weight * (1 + reps/30);
+}
+function fmt1(n) { return (Math.round(n*10)/10).toString().replace(".", ","); }
+function fmtDate(d) { return d.toLocaleDateString("nl-NL", {day:"numeric", month:"short"}); }
+
+const tabBtns = Array.from(document.querySelectorAll(".tabbtn"));
+function activateTab(btn, { focus = false } = {}) {
+  tabBtns.forEach(b => { b.setAttribute("aria-selected", "false"); b.tabIndex = -1; });
+  document.querySelectorAll(".tabpanel").forEach(p => p.classList.remove("active"));
+  btn.setAttribute("aria-selected", "true");
+  btn.tabIndex = 0;
+  document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  if (focus) btn.focus();
+}
+tabBtns.forEach((btn, i) => {
+  btn.addEventListener("click", () => activateTab(btn));
+  btn.addEventListener("keydown", (e) => {
+    let target = null;
+    if (e.key === "ArrowRight") target = tabBtns[(i + 1) % tabBtns.length];
+    else if (e.key === "ArrowLeft") target = tabBtns[(i - 1 + tabBtns.length) % tabBtns.length];
+    else if (e.key === "Home") target = tabBtns[0];
+    else if (e.key === "End") target = tabBtns[tabBtns.length - 1];
+    if (target) { e.preventDefault(); activateTab(target, { focus: true }); }
+  });
+});
+
+(function () {
+  const now = new Date();
+  const days = Math.ceil((GOAL_DATE - now) / (24*3600*1000));
+  document.getElementById("tileWeeks").textContent = Math.max(0, Math.round(days/7));
+})();
+
+function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, todayWeek, yDomain, prIndex, chartTitle}) {
+  const W = 900, H = 280, M = {top: 16, right: 16, bottom: 28, left: 42};
+  const innerW = W - M.left - M.right, innerH = H - M.top - M.bottom;
+
+  const allTargetVals = targetSeries.map(p => p.y);
+  const allActualVals = actualSeries.map(p => p.y);
+  const combined = [...allTargetVals, ...allActualVals];
+  const yMin = yDomain ? yDomain[0] : Math.floor(Math.min(...combined) - 3);
+  const yMax = yDomain ? yDomain[1] : Math.ceil(Math.max(...combined) + 3);
+
+  const allX = [...targetSeries.map(p => p.x), ...actualSeries.map(p => p.x)];
+  const dataMinX = allX.length ? Math.min(...allX) : 0;
+  const dataMaxX = allX.length ? Math.max(...allX) : (xMaxWeek || 1);
+  const xMin = Math.min(xMinWeek ?? 0, Math.floor(dataMinX) - 1);
+  const xMax = Math.max(xMaxWeek ?? 1, Math.ceil(dataMaxX) + 1);
+  const xSpan = xMax - xMin;
+
+  const xScale = w => M.left + ((w - xMin)/xSpan) * innerW;
+  const yScale = v => M.top + innerH - ((v - yMin)/(yMax - yMin)) * innerH;
+
+  const titleId = "charttitle-" + Math.random().toString(36).slice(2, 9);
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="${titleId}"><title id="${titleId}">${chartTitle || "Grafiek"}</title>`;
+
+  const steps = 5;
+  for (let i=0;i<=steps;i++){
+    const v = yMin + (yMax-yMin)*i/steps;
+    const y = yScale(v);
+    svg += `<line class="gridline" x1="${M.left}" x2="${W-M.right}" y1="${y}" y2="${y}"></line>`;
+    svg += `<text class="axislabel" x="${M.left-8}" y="${y+3}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const tickStep = xSpan > 30 ? 6 : (xSpan > 12 ? 4 : Math.max(1, Math.round(xSpan / 6)));
+  const tickStart = Math.ceil(xMin / tickStep) * tickStep;
+  for (let w = tickStart; w <= xMax; w += tickStep) {
+    const x = xScale(w);
+    svg += `<text class="axislabel" x="${x}" y="${H-M.bottom+16}" text-anchor="middle">wk ${w}</text>`;
+  }
+  svg += `<line class="axisline" x1="${M.left}" x2="${W-M.right}" y1="${H-M.bottom}" y2="${H-M.bottom}"></line>`;
+
+  if (todayWeek != null && todayWeek >= xMin && todayWeek <= xMax) {
+    const x = xScale(todayWeek);
+    svg += `<line class="today-line" x1="${x}" x2="${x}" y1="${M.top}" y2="${H-M.bottom}"></line>`;
+    svg += `<text class="axislabel" x="${x}" y="${M.top-4}" text-anchor="middle">vandaag</text>`;
+  }
+
+  if (targetSeries.length) {
+    const d = targetSeries.map((p,i) => `${i===0?"M":"L"}${xScale(p.x)},${yScale(p.y)}`).join(" ");
+    svg += `<path class="target-line" d="${d}"></path>`;
+  }
+  let dotMeta = [];
+  if (actualSeries.length) {
+    const d = actualSeries.map((p,i) => `${i===0?"M":"L"}${xScale(p.x)},${yScale(p.y)}`).join(" ");
+    svg += `<path class="actual-line" d="${d}"></path>`;
+    actualSeries.forEach((p, i) => {
+      const cx = xScale(p.x), cy = yScale(p.y);
+      const isPR = prIndex != null && i === prIndex;
+      svg += `<circle class="${isPR ? "pr-dot" : "actual-dot"}" cx="${cx}" cy="${cy}" r="${isPR?5.5:4.5}" data-idx="${i}" tabindex="0" role="button" aria-label="${(p.label + (isPR ? " · persoonlijk record" : "")).replace(/"/g,'&quot;')}"></circle>`;
+      dotMeta.push({cx, cy, label: p.label + (isPR ? " · PR" : "")});
+    });
+  }
+  svg += `</svg>`;
+
+  let tableHtml = "";
+  if (actualSeries.length) {
+    tableHtml = `<details class="chart-table"><summary>Toon als tabel</summary><table class="wtable"><thead><tr><th>Datum / week</th><th>Waarde</th></tr></thead><tbody>`;
+    actualSeries.forEach((p, i) => {
+      const parts = (p.label || "").split(" · ");
+      tableHtml += `<tr><td>${parts[0] || ("week " + p.x)}</td><td>${parts.slice(1).join(" · ") || fmt1(p.y) + " kg"}${i === prIndex ? " · PR" : ""}</td></tr>`;
+    });
+    tableHtml += `</tbody></table></details>`;
+  }
+  container.innerHTML = svg + tableHtml;
+
+  const tooltip = document.getElementById("tooltip");
+  container.appendChild(tooltip);
+  container.querySelectorAll(".actual-dot, .pr-dot").forEach((el, i) => {
+    const show = () => {
+      tooltip.textContent = dotMeta[i].label;
+      tooltip.style.opacity = 1;
+      const cRect = container.getBoundingClientRect();
+      const dRect = el.getBoundingClientRect();
+      tooltip.style.left = (dRect.left - cRect.left + dRect.width + 8) + "px";
+      tooltip.style.top = (dRect.top - cRect.top - 6) + "px";
+    };
+    const hide = () => { tooltip.style.opacity = 0; };
+    el.addEventListener("mouseenter", show);
+    el.addEventListener("mousemove", show);
+    el.addEventListener("mouseleave", hide);
+    el.addEventListener("focus", show);
+    el.addEventListener("blur", hide);
+  });
+}
+
+const benchTarget = PLAN.rows.map(r => ({x: r.week, y: r.e1rm_target}));
+const bwTarget = PLAN.bodyweight.map(b => ({x: b.week, y: b.bodyweight_target}));
+let currentTodayWeekBench = weekFromDate(new Date());
+
+function renderBenchChart(actualPoints) {
+  const pts = actualPoints || [];
+  const latestTxt = pts.length ? `, laatste gemeten e1RM ${fmt1(pts[pts.length-1].y)}kg` : ", nog geen gemeten data";
+  buildChart(document.getElementById("benchChartWrap"), {
+    targetSeries: benchTarget,
+    actualSeries: pts,
+    xMaxWeek: 23,
+    todayWeek: currentTodayWeekBench,
+    yDomain: [65, 105],
+    chartTitle: `Lijndiagram bankdrukken: doellijn van 80,7 tot 101 kg over 23 weken vergeleken met jouw werkelijke e1RM${latestTxt}.`,
+  });
+}
+function renderBwChart(manualPoint) {
+  buildChart(document.getElementById("bwChartWrap"), {
+    targetSeries: bwTarget,
+    actualSeries: manualPoint ? [manualPoint] : [],
+    xMaxWeek: 42,
+    todayWeek: weekFromDate(new Date()),
+    yDomain: [68, 82],
+    chartTitle: "Lijndiagram lichaamsgewicht: doellijn van 70 naar 80 kg over 42 weken" + (manualPoint ? `, jouw invoer ${fmt1(manualPoint.y)}kg` : ", nog geen invoer") + ".",
+  });
+}
+renderBenchChart([]);
+renderBwChart(null);
+
+function updateStatusTiles(latestE1rm, latestDate) {
+  const wk = Math.min(23, Math.max(0, currentTodayWeekBench));
+  const targetNow = wk <= 0 ? 80 : (PLAN.rows.find(r => r.week === wk)?.e1rm_target || 80);
+  document.getElementById("tileCurrent").textContent = latestE1rm != null ? fmt1(latestE1rm) + " kg" : "–";
+  document.getElementById("tileCurrentSub").textContent = latestDate ? ("op " + latestDate) : "geen bankdruk-data gevonden";
+
+  const statusEl = document.getElementById("tileStatus");
+  const statusSub = document.getElementById("tileStatusSub");
+  if (latestE1rm == null) {
+    statusEl.innerHTML = `<span class="badge warn"><span class="dot"></span>Onbekend</span>`;
+    statusSub.textContent = "vul handmatig in of sync opnieuw";
+    return;
+  }
+  const delta = latestE1rm - targetNow;
+  if (delta >= -1) {
+    statusEl.innerHTML = `<span class="badge good"><span class="dot"></span>Op schema</span>`;
+    statusSub.textContent = `${delta>=0?"+":""}${fmt1(delta)} kg t.o.v. doellijn (${fmt1(targetNow)} kg)`;
+  } else if (delta >= -4) {
+    statusEl.innerHTML = `<span class="badge warn"><span class="dot"></span>Licht achter</span>`;
+    statusSub.textContent = `${fmt1(delta)} kg t.o.v. doellijn (${fmt1(targetNow)} kg)`;
+  } else {
+    statusEl.innerHTML = `<span class="badge crit"><span class="dot"></span>Achter schema</span>`;
+    statusSub.textContent = `${fmt1(delta)} kg t.o.v. doellijn (${fmt1(targetNow)} kg) — overweeg fase te verlengen`;
+  }
+}
+updateStatusTiles(null, null);
+
+function updateAccessoryTiles(key, history) {
+  const cur = document.getElementById(key + "Current");
+  const curSub = document.getElementById(key + "CurrentSub");
+  const pr = document.getElementById(key + "PR");
+  const prSub = document.getElementById(key + "PRSub");
+  const lastDate = document.getElementById(key + "LastDate");
+  const trend = document.getElementById(key + "Trend");
+
+  if (!history.length) {
+    cur.textContent = "–"; curSub.textContent = "geen data gevonden";
+    pr.textContent = "–"; prSub.textContent = " ";
+    lastDate.textContent = "–";
+    trend.innerHTML = `<span class="badge neutral"><span class="dot"></span>–</span>`;
+    return;
+  }
+  const latest = history[history.length - 1];
+  cur.textContent = (latest.weight>0?"+":"") + fmt1(latest.weight) + " kg";
+  curSub.textContent = `${latest.reps} reps · e1RM ${fmt1(latest.e1rm)}kg`;
+
+  let prPoint = history[0];
+  history.forEach(h => { if (h.e1rm > prPoint.e1rm) prPoint = h; });
+  pr.textContent = (prPoint.weight>0?"+":"") + fmt1(prPoint.weight) + " kg";
+  prSub.textContent = `${prPoint.reps} reps op ${fmtDate(prPoint.date)}`;
+
+  lastDate.textContent = fmtDate(latest.date);
+
+  if (history.length >= 2) {
+    const prev = history[history.length - 2];
+    const d = latest.e1rm - prev.e1rm;
+    if (d > 0.3) trend.innerHTML = `<span class="badge good"><span class="dot"></span>↑ Stijgend</span>`;
+    else if (d < -0.3) trend.innerHTML = `<span class="badge warn"><span class="dot"></span>↓ Dalend</span>`;
+    else trend.innerHTML = `<span class="badge neutral"><span class="dot"></span>→ Stabiel</span>`;
+  } else {
+    trend.innerHTML = `<span class="badge neutral"><span class="dot"></span>1e datapunt</span>`;
+  }
+}
+
+function renderAccessoryChart(key, history) {
+  const wrap = document.getElementById(key + "ChartWrap");
+  if (!history.length) { wrap.innerHTML = `<div class="empty">Nog geen "${EXERCISES[key].label}"-sets gevonden. Log een sessie in Hevy of vul hieronder handmatig in.</div>`; return; }
+  let prIdx = 0;
+  history.forEach((h, i) => { if (h.e1rm > history[prIdx].e1rm) prIdx = i; });
+  const minWeek = Math.max(0, history[0].x - 2);
+  const maxWeek = history[history.length-1].x + 2;
+  const vals = history.map(h => h.y);
+  buildChart(wrap, {
+    targetSeries: [],
+    actualSeries: history,
+    xMaxWeek: Math.max(maxWeek, minWeek + 4),
+    todayWeek: null,
+    yDomain: [Math.floor(Math.min(...vals, 0) - 2), Math.ceil(Math.max(...vals) + 2)],
+    prIndex: prIdx,
+    chartTitle: `Lijndiagram ${EXERCISES[key].label}: extra gewicht e1RM per sessie, geen vast doel. Persoonlijk record ${fmt1(history[prIdx].y)}kg.`,
+  });
+}
+
+function benchTipText(history) {
+  if (!history.length) return "Nog geen bankdruk-sets gevonden in Hevy. Zodra je een sessie logt, verschijnt hier een gerichte tip.";
+  const latest = history[history.length - 1];
+  const wk = Math.min(23, Math.max(1, latest.x));
+  const planRow = PLAN.rows.find(r => r.week === wk) || PLAN.rows[0];
+  if (latest.weight >= planRow.top_weight && latest.reps >= planRow.top_reps) {
+    const nextRow = PLAN.rows.find(r => r.week === planRow.week + 1);
+    const nextTxt = nextRow ? `${nextRow.top_weight}kg × ${nextRow.top_reps}` : "stapjes van 2,5kg verder opbouwen";
+    return `Sterk! Op ${latest.weight}kg haalde je ${latest.reps} reps (doel week ${planRow.week}: ${planRow.top_weight}kg × ${planRow.top_reps}). Je zit op of vóór schema — volgende zware sessie richting ${nextTxt}.`;
+  }
+  if (latest.reps < planRow.top_reps - 1) {
+    return `Op ${latest.weight}kg haalde je ${latest.reps} van de ${planRow.top_reps} beoogde reps (week ${planRow.week}). Herhaal dit gewicht volgende sessie in plaats van te verzwaren — let op bardsnelheid en volledige leg drive.`;
+  }
+  return `Nette sessie: ${latest.weight}kg × ${latest.reps} (doel week ${planRow.week}: ${planRow.top_weight}kg × ${planRow.top_reps}). Blijf dit gewicht herhalen tot alle sets soepel gaan, verzwaar dan met 2,5kg.`;
+}
+
+function accessoryTipText(key, latestSets) {
+  const cfg = EXERCISES[key];
+  if (!latestSets || !latestSets.length) return `Nog geen "${cfg.label}"-sets gevonden in Hevy. Zodra je een sessie logt, verschijnt hier een gerichte tip.`;
+  const weight = latestSets[0].weight_kg || 0;
+  const reps = latestSets.map(s => s.reps);
+  const minReps = Math.min(...reps);
+  const allAtTop = reps.every(r => r >= cfg.range[1]);
+  const anyBelowMin = reps.some(r => r < cfg.range[0]);
+  const weightTxt = weight > 0 ? `+${fmt1(weight)}kg` : "lichaamsgewicht";
+  if (allAtTop) {
+    return `Alle sets op ${weightTxt} zaten op of boven ${cfg.range[1]} reps → volgende sessie ${fmt1(weight + cfg.increment)}kg proberen.`;
+  }
+  if (anyBelowMin) {
+    return `Je zakte op ${weightTxt} onder de ${cfg.range[0]} reps op minstens één set (laagste: ${minReps}). Blijf op dit gewicht — of ga ${cfg.increment}kg terug — en focus op nette, volledige reps.`;
+  }
+  return `Je zit met ${weightTxt} in de juiste range (${cfg.range[0]}-${cfg.range[1]} reps) maar nog niet overal bovenaan (laagste set: ${minReps}). Blijf op dit gewicht tot alle sets ${cfg.range[1]}+ reps halen.`;
+}
+
+const syncdot = document.getElementById("syncdot");
+const syncstatus = document.getElementById("syncstatus");
+const fallbackCard = document.getElementById("fallbackCard");
+
+function setSync(state, text) {
+  syncdot.className = "dot " + state;
+  syncstatus.textContent = text;
+}
+
+async function fetchHevyWorkouts(pages, pageSize, authHeaderName) {
+  const apiKey = getApiKey();
+  const all = [];
+  for (let page = 1; page <= pages; page++) {
+    const headers = { "Accept": "application/json" };
+    headers[authHeaderName] = authHeaderName === "Authorization" ? `Bearer ${apiKey}` : apiKey;
+    const res = await fetch(`${HEVY_BASE}/workouts?page=${page}&pageSize=${pageSize}`, { headers });
+    if (!res.ok) {
+      const err = new Error("HTTP " + res.status);
+      err.status = res.status;
+      throw err;
+    }
+    const data = await res.json();
+    const workouts = data.workouts || data.items || [];
+    if (!workouts.length) break;
+    all.push(...workouts);
+    if (workouts.length < pageSize) break;
+  }
+  return all;
+}
+
+async function fetchHevyWithFallback(pages, pageSize) {
+  try {
+    return await fetchHevyWorkouts(pages, pageSize, "api-key");
+  } catch (err) {
+    if (err.status === 401 || err.status === 403) {
+      return await fetchHevyWorkouts(pages, pageSize, "Authorization");
+    }
+    throw err;
+  }
+}
+
+function renderLastWorkout(w) {
+  const meta = document.getElementById("lastWorkoutMeta");
+  const body = document.getElementById("lastWorkoutBody");
+  if (!w) { meta.textContent = "–"; body.innerHTML = `<div class="empty">Geen workouts gevonden.</div>`; return; }
+  const date = new Date(w.start_time || w.created_at || Date.now());
+  meta.textContent = `${w.title || "Workout"} · ${date.toLocaleDateString("nl-NL", {day:"numeric", month:"long", year:"numeric"})}`;
+  let rows = "";
+  (w.exercises || []).forEach(ex => {
+    const tracked = Object.values(EXERCISES).some(cfg => cfg.match(ex.title || ""));
+    const sets = (ex.sets || []).map(s => `${s.weight_kg ?? "–"}kg × ${s.reps ?? "–"}`).join(", ");
+    rows += `<tr class="${tracked ? "highlight-row" : ""}"><td>${ex.title || "Oefening"}</td><td>${sets || "–"}</td></tr>`;
+  });
+  body.innerHTML = `<table class="wtable"><thead><tr><th>Oefening</th><th>Sets</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function extractExerciseData(workouts, matcher) {
+  const history = [];
+  let latestEntry = null;
+  workouts.forEach(w => {
+    const date = new Date(w.start_time || w.created_at);
+    (w.exercises || []).forEach(ex => {
+      if (!matcher(ex.title || "")) return;
+      const sets = (ex.sets || []).filter(s => s.reps != null && s.type !== "warmup");
+      if (!sets.length) return;
+      let best = null;
+      sets.forEach(s => {
+        const wgt = s.weight_kg || 0;
+        const e = epley(wgt, s.reps);
+        if (!best || e > best.e1rm) best = { weight: wgt, reps: s.reps, e1rm: e };
+      });
+      if (best) {
+        history.push({ x: weekFromDate(date), y: best.e1rm, weight: best.weight, reps: best.reps, e1rm: best.e1rm, date, label: `${date.toLocaleDateString("nl-NL")} · ${best.weight>0?"+"+fmt1(best.weight)+"kg":"lichaamsgew."} × ${best.reps} (e1RM ${fmt1(best.e1rm)}kg)` });
+      }
+      if (!latestEntry || date > latestEntry.date) latestEntry = { date, sets };
+    });
+  });
+  history.sort((a, b) => a.date - b.date);
+  return { history, latestSets: latestEntry ? latestEntry.sets : [] };
+}
+
+let anyDataFound = false;
+const apiKeyCard = document.getElementById("apiKeyCard");
+
+async function syncHevy() {
+  if (!getApiKey()) {
+    setSync("err", "Nog geen API-sleutel opgeslagen op dit toestel — vul 'm hieronder in.");
+    apiKeyCard.style.display = "block";
+    return;
+  }
+  apiKeyCard.style.display = "none";
+  setSync("pending", "Verbinden met Hevy…");
+  try {
+    const workouts = await fetchHevyWithFallback(6, 10);
+    if (!workouts.length) {
+      setSync("err", "Verbonden, maar geen workouts gevonden op dit account.");
+      fallbackCard.style.display = "block";
+      renderLastWorkout(null);
+      return;
+    }
+    workouts.sort((a, b) => new Date(b.start_time || b.created_at) - new Date(a.start_time || a.created_at));
+    renderLastWorkout(workouts[0]);
+
+    const cutoff = new Date(PROGRAM_START.getTime() - 90 * 24 * 3600 * 1000);
+    const recentWorkouts = workouts.filter(w => new Date(w.start_time || w.created_at) >= cutoff);
+
+    const bench = extractExerciseData(recentWorkouts, EXERCISES.bench.match);
+    const dips = extractExerciseData(recentWorkouts, EXERCISES.dips.match);
+    const pullups = extractExerciseData(recentWorkouts, EXERCISES.pullups.match);
+
+    renderBenchChart(bench.history);
+    if (bench.history.length) {
+      const latest = bench.history[bench.history.length - 1];
+      updateStatusTiles(latest.e1rm, latest.date.toLocaleDateString("nl-NL"));
+    }
+    document.getElementById("benchTip").textContent = benchTipText(bench.history);
+
+    renderAccessoryChart("dips", dips.history);
+    updateAccessoryTiles("dips", dips.history);
+    document.getElementById("dipsTip").textContent = accessoryTipText("dips", dips.latestSets);
+
+    renderAccessoryChart("pullups", pullups.history);
+    updateAccessoryTiles("pullups", pullups.history);
+    document.getElementById("pullupsTip").textContent = accessoryTipText("pullups", pullups.latestSets);
+
+    anyDataFound = bench.history.length || dips.history.length || pullups.history.length;
+    if (anyDataFound) {
+      setSync("ok", `Verbonden — ${workouts.length} workouts geladen, laatste op ${new Date(workouts[0].start_time || workouts[0].created_at).toLocaleDateString("nl-NL")}.`);
+      if (!bench.history.length || !dips.history.length || !pullups.history.length) fallbackCard.style.display = "block";
+    } else {
+      setSync("ok", `Verbonden, maar geen bankdruk-, dip- of pull-up-sets gevonden in je laatste ${workouts.length} workouts.`);
+      fallbackCard.style.display = "block";
+    }
+  } catch (err) {
+    console.error(err);
+    const detail = err && err.status
+      ? `HTTP ${err.status} — controleer of de API-sleutel klopt.`
+      : "netwerk-/CORS-fout — deze browser kon api.hevyapp.com niet bereiken.";
+    setSync("err", `Kon Hevy niet bereiken (${detail}). Vul hieronder handmatig in.`);
+    fallbackCard.style.display = "block";
+    renderLastWorkout(null);
+    document.getElementById("benchTip").textContent = benchTipText([]);
+    document.getElementById("dipsTip").textContent = accessoryTipText("dips", []);
+    document.getElementById("pullupsTip").textContent = accessoryTipText("pullups", []);
+  }
+}
+
+document.getElementById("syncbtn").addEventListener("click", syncHevy);
+document.getElementById("apiKeyBtn").addEventListener("click", () => {
+  const val = document.getElementById("apiKeyInput").value;
+  if (!val.trim()) return;
+  setApiKey(val);
+  document.getElementById("apiKeyInput").value = "";
+  syncHevy();
+});
+document.getElementById("apiKeyInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("apiKeyBtn").click();
+});
+syncHevy();
+
+document.getElementById("manBtn").addEventListener("click", () => {
+  const key = document.getElementById("manEx").value;
+  const w = parseFloat(document.getElementById("manW").value);
+  const r = parseFloat(document.getElementById("manR").value);
+  if (!r) return;
+  const weight = isNaN(w) ? 0 : w;
+  const e = epley(weight, r);
+  const now = new Date();
+  const point = { x: weekFromDate(now), y: e, weight, reps: r, e1rm: e, date: now, label: `Handmatig · ${weight>0?"+"+fmt1(weight)+"kg":"lichaamsgew."} × ${r} (e1RM ${fmt1(e)}kg)` };
+  if (key === "bench") {
+    renderBenchChart([point]);
+    updateStatusTiles(e, "handmatige invoer");
+    document.getElementById("benchTip").textContent = benchTipText([point]);
+  } else {
+    renderAccessoryChart(key, [point]);
+    updateAccessoryTiles(key, [point]);
+    document.getElementById(key + "Tip").textContent = accessoryTipText(key, [{ weight_kg: weight, reps: r }]);
+  }
+});
+
+document.getElementById("bwBtn").addEventListener("click", () => {
+  const w = parseFloat(document.getElementById("bwInput").value);
+  const note = document.getElementById("bwNote");
+  if (!w) return;
+  const wk = Math.min(42, Math.max(0, weekFromDate(new Date())));
+  const target = PLAN.bodyweight.find(b => b.week === wk)?.bodyweight_target ?? 70;
+  const point = { x: wk, y: w, label: `Vandaag · ${fmt1(w)}kg` };
+  renderBwChart(point);
+  const delta = w - target;
+  note.textContent = `Doelgewicht voor week ${wk}: ${fmt1(target)} kg. Jij zit op ${fmt1(w)} kg (${delta>=0?"+":""}${fmt1(delta)} kg t.o.v. doel).`;
+});
+</script>
+</body>
+</html>
