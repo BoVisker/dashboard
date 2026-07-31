@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Krachtdashboard — Bankdruk, Dips & Pull-ups</title>
+<title>Krachtdashboard — Bankdrukken, Dips & Pull-ups</title>
 <!-- "Add to Home Screen" (iOS) / "Install as app" (Chrome, Safari "Add to Dock")
      picks these up to launch without browser chrome, like a real app. -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,13 +26,19 @@
     --border:         rgba(11,11,11,0.10);
     --series-1:       #2a78d6;
     --series-1-wash:  rgba(42,120,214,0.12);
+    --series-2:       #008300;
+    --series-2-wash:  rgba(0,131,0,0.12);
     --accent-text:    #276fc6;
     --status-good:    #0ca30c;
     --status-warn:    #fab219;
     --status-crit:    #d03b3b;
     --card-bg:        #ffffff;
     --deload-bg:      #fdf0dc;
+    --deload-band:    rgba(235,168,52,0.14);
     --tip-bg:         #eef3fb;
+    --badge-new-ring: #eda100;
+    --trend-line:     #4a3aa7;
+    --button-fill:    #1f5aa8;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .viz-root {
@@ -48,13 +54,19 @@
       --border:         rgba(255,255,255,0.10);
       --series-1:       #3987e5;
       --series-1-wash:  rgba(57,135,229,0.16);
+      --series-2:       #008300;
+      --series-2-wash:  rgba(0,131,0,0.18);
       --accent-text:    #3b8bec;
       --status-good:    #0ca30c;
       --status-warn:    #fab219;
       --status-crit:    #e66767;
       --card-bg:        #232322;
       --deload-bg:      #332a17;
+      --deload-band:    rgba(235,168,52,0.16);
       --tip-bg:         #17233a;
+      --badge-new-ring: #c98500;
+      --trend-line:     #9085e9;
+      --button-fill:    #1f5aa8;
     }
   }
   :root[data-theme="dark"] .viz-root {
@@ -70,13 +82,19 @@
     --border:         rgba(255,255,255,0.10);
     --series-1:       #3987e5;
     --series-1-wash:  rgba(57,135,229,0.16);
+    --series-2:       #008300;
+    --series-2-wash:  rgba(0,131,0,0.18);
     --accent-text:    #3b8bec;
     --status-good:    #0ca30c;
     --status-warn:    #fab219;
     --status-crit:    #e66767;
     --card-bg:        #232322;
     --deload-bg:      #332a17;
+    --deload-band:    rgba(235,168,52,0.16);
     --tip-bg:         #17233a;
+    --badge-new-ring: #c98500;
+    --trend-line:     #9085e9;
+    --button-fill:    #1f5aa8;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -127,6 +145,10 @@
   .tile .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
   .tile .value { font-size: 26px; font-weight: 600; }
   .tile .sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  /* Badges: color lives on the dot, never on the text — the text itself stays
+     in high-contrast body ink so it always clears 4.5:1 regardless of theme
+     (a colored wash behind colored text often fails contrast; ink text next
+     to a color dot never does). */
   .badge {
     display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600;
     padding: 4px 10px 4px 8px; border-radius: 999px; color: var(--text-primary);
@@ -150,12 +172,16 @@
   .legend .swatch { width: 18px; height: 3px; border-radius: 2px; }
   .legend .swatch.target { background: repeating-linear-gradient(90deg, var(--line-muted) 0 6px, transparent 6px 10px); }
   .legend .swatch.actual { background: var(--series-1); }
+  .legend .swatch.tonnage { background: var(--series-2); border-radius: 2px; height: 10px; }
+  .legend .swatch.deload { background: var(--deload-band); border: 1px solid var(--line-muted); height: 12px; }
+  .legend .swatch.trend { background: repeating-linear-gradient(90deg, var(--trend-line) 0 2px, transparent 2px 5px); }
 
   svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
   .gridline { stroke: var(--gridline); stroke-width: 1; }
   .axisline { stroke: var(--line-muted); stroke-width: 1; }
   .axislabel { fill: var(--text-muted); font-size: 11px; }
   .target-line { fill: none; stroke: var(--line-muted); stroke-width: 2; stroke-dasharray: 5 4; }
+  .trend-line { fill: none; stroke: var(--trend-line); stroke-width: 2; stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
   .actual-line { fill: none; stroke: var(--series-1); stroke-width: 2.5; }
   .actual-dot { fill: var(--series-1); stroke: var(--card-bg); stroke-width: 1.5; cursor: pointer; }
   .pr-dot { fill: var(--status-good); stroke: var(--card-bg); stroke-width: 1.5; cursor: pointer; }
@@ -188,7 +214,10 @@
     min-height: 44px;
   }
   .fallback button {
-    border: none; background: var(--series-1); color: #fff; padding: 8px 14px; border-radius: 7px;
+    /* --button-fill (not --series-1) — a darker blue chosen specifically so
+       white button text clears 4.5:1 in both themes (--series-1 itself only
+       reaches ~4.4:1 in light mode and ~3.6:1 in dark mode as a fill). */
+    border: none; background: var(--button-fill); color: #fff; padding: 8px 14px; border-radius: 7px;
     font-size: 13px; cursor: pointer; font-family: inherit; min-height: 44px;
   }
   .note { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
@@ -202,11 +231,90 @@
   footer { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 28px; line-height: 1.6; }
   a { color: var(--accent-text); }
 
+  /* Explicit, high-contrast focus ring — don't rely on each browser's default,
+     which can be faint on custom-background buttons/inputs (WCAG 2.4.7). */
   .tabbtn:focus-visible, .syncbar button:focus-visible, .fallback button:focus-visible,
   .fallback input:focus-visible, .fallback select:focus-visible, summary:focus-visible,
-  .actual-dot:focus-visible, .pr-dot:focus-visible {
+  .actual-dot:focus-visible, .pr-dot:focus-visible, .iconbtn:focus-visible,
+  .exportbtn:focus-visible, .tonnage-bar:focus-visible {
     outline: 2px solid var(--series-1); outline-offset: 2px;
   }
+
+  /* ---------- "since your last visit" banner ---------- */
+  .visitbanner {
+    background: var(--tip-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 18px; font-size: 13px; line-height: 1.6;
+  }
+  .visitbanner .vtitle { font-weight: 700; color: var(--accent-text); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .visitbanner ul { margin: 0; padding-left: 18px; }
+
+  /* ---------- goal progress bar ---------- */
+  .progresswrap { margin: 4px 0 20px; }
+  .progresswrap .plabel { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .progressbar { height: 10px; border-radius: 999px; background: var(--gridline); overflow: hidden; }
+  .progressbar .fill { height: 100%; background: var(--series-1); border-radius: 999px; transition: width .3s; }
+
+  /* ---------- achievement badges ---------- */
+  .achievements { display: flex; flex-wrap: wrap; gap: 10px; }
+  .achievement {
+    display: flex; align-items: center; gap: 8px; background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px; min-height: 44px;
+  }
+  .achievement.isnew { border-color: var(--badge-new-ring); box-shadow: 0 0 0 1px var(--badge-new-ring); }
+  .achievement .aicon { font-size: 18px; line-height: 1; }
+  .achievement .atext { display: flex; flex-direction: column; }
+  .achievement .atitle { font-weight: 600; color: var(--text-primary); }
+  .achievement .adesc { color: var(--text-muted); font-size: 11px; }
+  .newtag { color: var(--accent-text); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; margin-left: 4px; }
+
+  /* ---------- streak heatmap ---------- */
+  .streakrow { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+  .streakdot { width: 14px; height: 14px; border-radius: 3px; background: var(--gridline); flex: none; }
+  .streakdot.trained { background: var(--series-1); }
+
+  /* ---------- compliance / ratio inline chips ---------- */
+  .metarow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ---------- export button ---------- */
+  .exportbtn {
+    border: 1px solid var(--border); background: transparent; color: var(--accent-text);
+    padding: 6px 12px; border-radius: 7px; font-size: 12px; cursor: pointer; font-family: inherit;
+    font-weight: 600; min-height: 44px; margin-top: 8px;
+  }
+  .exportbtn:hover { background: var(--series-1-wash); }
+
+  .deload-band { fill: var(--deload-band); }
+
+  /* ---------- combined overview strip (all 3 lifts at a glance) ---------- */
+  .overview { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 720px) { .overview { grid-template-columns: 1fr; } }
+  .ovcard {
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+    cursor: pointer; text-align: left; font-family: inherit; color: inherit;
+    min-height: 44px;
+  }
+  .ovcard:hover { background: var(--series-1-wash); }
+  .ovcard .ovlabel { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+  .ovcard .ovstar { font-size: 10px; background: var(--series-1-wash); color: var(--text-primary); padding: 1px 6px; border-radius: 999px; font-weight: 700; }
+  .ovcard .ovvalue { font-size: 20px; font-weight: 600; }
+  .ovcard .ovsub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ---------- pre-session check-in ---------- */
+  .checkin-scale { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .checkin-scale button {
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-family: inherit;
+    min-height: 44px; min-width: 44px;
+  }
+  .checkin-scale button[aria-pressed="true"] { background: var(--button-fill); color: #fff; border-color: var(--button-fill); }
+  .checkin-scale button:hover { background: var(--series-1-wash); }
+  .checkin-scale button[aria-pressed="true"]:hover { background: var(--button-fill); }
+  .checkin-log { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+
+  /* ---------- next-session prescription ---------- */
+  .nextsession { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .nextsession .nsweight { font-size: 28px; font-weight: 700; color: var(--text-primary); }
+  .nextsession .nsreps { font-size: 15px; color: var(--text-secondary); }
 </style>
 </head>
 <body class="viz-root">
@@ -223,6 +331,11 @@
     <button id="syncbtn">Ververs</button>
   </div>
 
+  <div class="visitbanner" id="visitBanner" style="display:none;" role="status">
+    <div class="vtitle">Sinds je laatste bezoek</div>
+    <ul id="visitList"></ul>
+  </div>
+
   <div class="card" id="apiKeyCard" style="display:none;">
     <h2>Hevy API-sleutel</h2>
     <p class="cardsub">Deze sleutel wordt alleen opgeslagen op dít toestel (niet in het bestand zelf), zodat je dit bestand veilig kunt delen of hosten zonder je sleutel prijs te geven. Op elk nieuw toestel/browser vul je 'm één keer opnieuw in.</p>
@@ -236,6 +349,43 @@
       </div>
       <div class="note">Vind je sleutel in de Hevy-app onder Instellingen → API (Pro-account vereist).</div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Voor je sessie: hoe voel je je?</h2>
+    <p class="cardsub">Optioneel, alleen lokaal op dit toestel bewaard — gebruikt om tips aan te passen als je een paar keer op rij zwaar/pijnlijk aangeeft.</p>
+    <div class="checkin-scale" id="checkinScale" role="group" aria-label="Hoe voelt je lichaam vandaag, van 1 (fris) tot 5 (zwaar/pijnlijk)">
+      <button type="button" data-val="1" aria-pressed="false">1 · Fris</button>
+      <button type="button" data-val="2" aria-pressed="false">2</button>
+      <button type="button" data-val="3" aria-pressed="false">3 · Normaal</button>
+      <button type="button" data-val="4" aria-pressed="false">4</button>
+      <button type="button" data-val="5" aria-pressed="false">5 · Zwaar/pijnlijk</button>
+    </div>
+    <div class="checkin-log" id="checkinLog"></div>
+  </div>
+
+  <div class="overview" id="overviewStrip">
+    <button class="ovcard" type="button" data-gototab="bench">
+      <div class="ovlabel">Bankdrukken <span class="ovstar">hoofddoel</span></div>
+      <div class="ovvalue" id="ovBench">–</div>
+      <div class="ovsub" id="ovBenchSub">wachten op data</div>
+    </button>
+    <button class="ovcard" type="button" data-gototab="dips">
+      <div class="ovlabel">Weighted Dips</div>
+      <div class="ovvalue" id="ovDips">–</div>
+      <div class="ovsub" id="ovDipsSub">wachten op data</div>
+    </button>
+    <button class="ovcard" type="button" data-gototab="pullups">
+      <div class="ovlabel">Weighted Pull-ups</div>
+      <div class="ovvalue" id="ovPullups">–</div>
+      <div class="ovsub" id="ovPullupsSub">wachten op data</div>
+    </button>
+  </div>
+  <div class="card">
+    <h2>Push/pull-balans</h2>
+    <p class="cardsub">Verhouding tussen je zwaarste weighted dip (duwen) en weighted pull-up (trekken). Vuistregel: dicht bij 1:1 wijst doorgaans op een gebalanceerde opbouw — geen harde wetenschappelijke norm.</p>
+    <div class="value" id="pushPullRatio">–</div>
+    <div class="sub" id="pushPullSub">wachten op data</div>
   </div>
 
   <main>
@@ -271,14 +421,71 @@
       </div>
     </div>
 
+    <div class="progresswrap">
+      <div class="plabel"><span>Voortgang naar 100kg</span><span id="benchProgressPct">0%</span></div>
+      <div class="progressbar"><div class="fill" id="benchProgressFill" style="width:0%;"></div></div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">Sterkte t.o.v. lichaamsgewicht</div>
+        <div class="value" id="benchRatio">–</div>
+        <div class="sub" id="benchRatioSub">vul je gewicht in bij Lichaamsgewicht</div>
+      </div>
+      <div class="tile">
+        <div class="label">Trainingsweken op rij</div>
+        <div class="value" id="streakValue">–</div>
+        <div class="sub">laatste 12 weken</div>
+        <div class="streakrow" id="streakRow" aria-hidden="true"></div>
+      </div>
+      <div class="tile">
+        <div class="label">Sets voldeden aan schema</div>
+        <div class="value" id="complianceValue">–</div>
+        <div class="sub" id="complianceSub">laatste sessie</div>
+      </div>
+      <div class="tile">
+        <div class="label">Totaal workouts (Hevy)</div>
+        <div class="value" id="workoutCountTile">–</div>
+        <div class="sub">alle tijd, alle oefeningen</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Volgende sessie</h2>
+      <p class="cardsub" id="nextSessionMeta">–</p>
+      <div class="nextsession">
+        <span class="nsweight" id="nextSessionWeight">–</span>
+        <span class="nsreps" id="nextSessionReps">–</span>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Bankdruk: doellijn vs. jouw voortgang</h2>
-      <p class="cardsub">Geschat 1RM (Epley-formule) per week, op basis van je zwaarste bankdruk-set uit Hevy.</p>
+      <p class="cardsub">Geschat 1RM (Epley-formule) per week, op basis van je zwaarste bankdruk-set uit Hevy. Oranje band = deload-week uit je schema.</p>
       <div class="legend">
         <div class="item"><span class="swatch target"></span> Doellijn (schema)</div>
         <div class="item"><span class="swatch actual"></span> Jouw e1RM (Hevy)</div>
+        <div class="item"><span class="swatch trend"></span> Jouw tempo (voorspelling)</div>
+        <div class="item"><span class="swatch deload"></span> Deload-week</div>
       </div>
       <div class="chartwrap" id="benchChartWrap"></div>
+      <p class="note" id="trendNote"></p>
+      <button class="exportbtn" id="benchExportBtn" type="button">Exporteer grafiek als afbeelding</button>
+    </div>
+
+    <div class="card">
+      <h2>Gewicht per rep-aantal</h2>
+      <p class="cardsub">Op basis van je huidige geschatte 1RM, afgerond op 2,5kg — richtlijn, geen garantie.</p>
+      <div id="repTable"><div class="empty">Nog geen data geladen.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Trainingsvolume (tonnage)</h2>
+      <p class="cardsub">Totaal getild gewicht (gewicht × reps, alle sets) per bankdruk-sessie — laat zien hoeveel werk je verzet, los van je topgewicht.</p>
+      <div class="legend">
+        <div class="item"><span class="swatch tonnage"></span> Tonnage per sessie (kg)</div>
+      </div>
+      <div class="chartwrap" id="benchTonnageWrap"></div>
     </div>
 
     <div class="card">
@@ -294,6 +501,12 @@
         <li>Houd grip­breedte consistent tussen sessies, zodat vergelijkingen eerlijk blijven.</li>
         <li>Adem in tijdens het zakken, zet de buik onder spanning (brace), adem uit tijdens het drukken.</li>
       </ul>
+    </div>
+
+    <div class="card">
+      <h2>Al je persoonlijke records — bankdrukken</h2>
+      <p class="cardsub">Beste sets ooit gelogd in Hevy voor deze oefening, niet beperkt tot dit trainingsblok.</p>
+      <div id="benchAllTimeTable"><div class="empty">Nog geen data geladen.</div></div>
     </div>
   </div>
 
@@ -329,6 +542,16 @@
         <div class="item"><span class="swatch actual"></span> Extra gewicht e1RM</div>
       </div>
       <div class="chartwrap" id="dipsChartWrap"></div>
+      <button class="exportbtn" id="dipsExportBtn" type="button">Exporteer grafiek als afbeelding</button>
+    </div>
+
+    <div class="card">
+      <h2>Trainingsvolume (tonnage) — dips</h2>
+      <p class="cardsub">Totaal getild gewicht per sessie (lichaamsgewicht + extra gewicht × reps).</p>
+      <div class="legend">
+        <div class="item"><span class="swatch tonnage"></span> Tonnage per sessie (kg)</div>
+      </div>
+      <div class="chartwrap" id="dipsTonnageWrap"></div>
     </div>
 
     <div class="card">
@@ -343,6 +566,12 @@
         <li>Gebruik een dipbelt voor extra gewicht, zodat je handen vrij blijven voor een stabiele grip.</li>
         <li>Vermijd volledig doorstrekken met een 'klik' in de ellebogen bovenaan.</li>
       </ul>
+    </div>
+
+    <div class="card">
+      <h2>Al je persoonlijke records — weighted dips</h2>
+      <p class="cardsub">Beste sets ooit gelogd in Hevy voor deze oefening.</p>
+      <div id="dipsAllTimeTable"><div class="empty">Nog geen data geladen.</div></div>
     </div>
   </div>
 
@@ -378,6 +607,16 @@
         <div class="item"><span class="swatch actual"></span> Extra gewicht e1RM</div>
       </div>
       <div class="chartwrap" id="pullupsChartWrap"></div>
+      <button class="exportbtn" id="pullupsExportBtn" type="button">Exporteer grafiek als afbeelding</button>
+    </div>
+
+    <div class="card">
+      <h2>Trainingsvolume (tonnage) — pull-ups</h2>
+      <p class="cardsub">Totaal getild gewicht per sessie (lichaamsgewicht + extra gewicht × reps).</p>
+      <div class="legend">
+        <div class="item"><span class="swatch tonnage"></span> Tonnage per sessie (kg)</div>
+      </div>
+      <div class="chartwrap" id="pullupsTonnageWrap"></div>
     </div>
 
     <div class="card">
@@ -393,9 +632,21 @@
         <li>Bouw extra gewicht rustig op — pols- en ellebooggewrichten passen zich langzamer aan dan je rug- en armspieren.</li>
       </ul>
     </div>
+
+    <div class="card">
+      <h2>Al je persoonlijke records — weighted pull-ups</h2>
+      <p class="cardsub">Beste sets ooit gelogd in Hevy voor deze oefening.</p>
+      <div id="pullupsAllTimeTable"><div class="empty">Nog geen data geladen.</div></div>
+    </div>
   </div>
 
   <!-- ================= SHARED SECTIONS ================= -->
+  <div class="card">
+    <h2>Prestaties</h2>
+    <p class="cardsub">Automatisch bijgehouden mijlpalen op basis van je Hevy-data.</p>
+    <div class="achievements" id="achievementsWrap"><div class="empty">Nog geen prestaties — begin met loggen in Hevy.</div></div>
+  </div>
+
   <div class="card">
     <h2>Laatste workout</h2>
     <p class="cardsub" id="lastWorkoutMeta">–</p>
@@ -404,17 +655,20 @@
 
   <div class="card">
     <h2>Lichaamsgewicht: doellijn</h2>
-    <p class="cardsub">70 → 80 kg in 42 weken. Hevy's publieke API levert geen gewichtsmetingen, dus vul je huidige gewicht hieronder in om je positie te zien.</p>
+    <p class="cardsub" id="bwCardSub">70 → 80 kg in 42 weken. Wordt automatisch gesynchroniseerd vanuit Hevy's lichaamsmetingen (Voortgang → Lichaamsgewicht in de Hevy-app).</p>
     <div class="chartwrap" id="bwChartWrap"></div>
+    <div class="metarow">
+      <span class="badge neutral" id="bwSourceBadge"><span class="dot"></span>Nog geen data</span>
+    </div>
     <div class="fallback">
       <div class="row">
         <div>
           <label for="bwInput">Huidig gewicht (kg)</label>
           <input type="number" id="bwInput" step="0.1" placeholder="70.0">
         </div>
-        <button id="bwBtn">Toon op grafiek</button>
+        <button id="bwBtn">Toevoegen als lokaal punt</button>
       </div>
-      <div class="note" id="bwNote"></div>
+      <div class="note" id="bwNote">Alleen nodig als je nog geen gewicht in Hevy zelf bijhoudt — dit lokale punt wordt niet naar Hevy gestuurd en overschreven zodra er wél Hevy-data is.</div>
     </div>
   </div>
 
@@ -443,6 +697,8 @@
   <footer>
     Doellijn bankdrukken gebaseerd op het bankdrukplan (23 weken, juli 2026 – januari 2027). Dips en pull-ups hebben geen vast doel — het dashboard volgt gewoon je hoogste haalbare gewicht.
     <br>Je Hevy API-sleutel wordt lokaal op dit toestel opgeslagen (niet in dit bestand) — dit bestand zelf bevat geen geheime gegevens en is dus veilig te delen of hosten.
+    <br>Prestaties, streak, thema-voorkeur en eventuele lokale gewichtsinvoer worden ook alleen lokaal op dit toestel bewaard.
+    <br>De sterkte-ratio-classificatie is een ruwe vuistregel ter motivatie, geen wetenschappelijke norm.
     <br>Laatste keer gebouwd: <span id="buildDate"></span>.
   </footer>
 
@@ -459,9 +715,18 @@ const GOAL_DATE = new Date("2027-01-01T00:00:00");
 const HEVY_BASE = "https://api.hevyapp.com/v1";
 const API_KEY_STORAGE = "hevyApiKey";
 
+// The API key lives only in this browser's localStorage — never in the file
+// itself — so this HTML can be shared, hosted, or synced between devices
+// without leaking Hevy account access. Each device/browser enters it once.
 function getApiKey() { return (localStorage.getItem(API_KEY_STORAGE) || "").trim(); }
 function setApiKey(k) { localStorage.setItem(API_KEY_STORAGE, k.trim()); }
 
+/* Matchers are functions, not bare regexes: Hevy's exercise library has many
+   variants of each lift ("Incline Bench Press (Barbell)", "Close Grip Bench
+   Press (Barbell)", "Bench Dip", "Assisted Pull Up (Machine)", ...). A loose
+   substring match conflates those different lifts into one progress line,
+   which is what caused the earlier zigzag chart / wrong "current 1RM". These
+   matchers require the specific lift and explicitly exclude near-miss names. */
 function matchBench(title) {
   const t = (title || "").toLowerCase().trim();
   if (!t.includes("bench press")) return false;
@@ -471,6 +736,10 @@ function matchBench(title) {
 function matchDip(title) {
   const t = (title || "").toLowerCase().trim();
   if (!t.includes("dip")) return false;
+  // These two tabs track the WEIGHTED variant only — a plain bodyweight "Dip"
+  // is a different exercise entry in Hevy and would otherwise get folded in,
+  // dragging e1RM down to ~0 on sets with no added weight and making the
+  // chart mix two unrelated progressions.
   if (!t.includes("weighted")) return false;
   const exclude = ["bench dip", "assisted", "machine", "ring", "band"];
   return !exclude.some(w => t.includes(w));
@@ -501,6 +770,7 @@ function epley(weight, reps) {
 function fmt1(n) { return (Math.round(n*10)/10).toString().replace(".", ","); }
 function fmtDate(d) { return d.toLocaleDateString("nl-NL", {day:"numeric", month:"short"}); }
 
+/* ---------- tabs (ARIA APG tablist pattern: roving tabindex + arrow keys) ---------- */
 const tabBtns = Array.from(document.querySelectorAll(".tabbtn"));
 function activateTab(btn, { focus = false } = {}) {
   tabBtns.forEach(b => { b.setAttribute("aria-selected", "false"); b.tabIndex = -1; });
@@ -522,22 +792,43 @@ tabBtns.forEach((btn, i) => {
   });
 });
 
+// Overview strip cards double as tab shortcuts, so you don't have to switch
+// tabs first just to see which lift a number belongs to.
+document.querySelectorAll(".ovcard").forEach(card => {
+  card.addEventListener("click", () => {
+    const target = document.getElementById("tab-" + card.dataset.gototab);
+    if (!target) return;
+    activateTab(target);
+    document.querySelector(".tabnav").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
+/* ---------- weeks-to-goal tile ---------- */
 (function () {
   const now = new Date();
   const days = Math.ceil((GOAL_DATE - now) / (24*3600*1000));
   document.getElementById("tileWeeks").textContent = Math.max(0, Math.round(days/7));
 })();
 
-function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, todayWeek, yDomain, prIndex, chartTitle}) {
+/* ---------- generic SVG line chart builder ---------- */
+function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, todayWeek, yDomain, prIndex, chartTitle, deloadWeeks, trendSeries}) {
   const W = 900, H = 280, M = {top: 16, right: 16, bottom: 28, left: 42};
   const innerW = W - M.left - M.right, innerH = H - M.top - M.bottom;
 
+  const trendPts = trendSeries || [];
   const allTargetVals = targetSeries.map(p => p.y);
   const allActualVals = actualSeries.map(p => p.y);
   const combined = [...allTargetVals, ...allActualVals];
   const yMin = yDomain ? yDomain[0] : Math.floor(Math.min(...combined) - 3);
   const yMax = yDomain ? yDomain[1] : Math.ceil(Math.max(...combined) + 3);
 
+  // The x-domain always widens to fit every plotted point (target AND actual).
+  // Previously xMinWeek was implicitly 0, so any actual session dated before
+  // the program's start week (a legitimate, common case) plotted at a negative
+  // x and spilled out past the left edge of the chart. Padding by 1 week keeps
+  // the outermost points off the plot's border. Deliberately excludes the
+  // trend projection from widening the domain — a far-future projection
+  // shouldn't squash the rest of the chart; it's clipped to the plot area.
   const allX = [...targetSeries.map(p => p.x), ...actualSeries.map(p => p.x)];
   const dataMinX = allX.length ? Math.min(...allX) : 0;
   const dataMaxX = allX.length ? Math.max(...allX) : (xMaxWeek || 1);
@@ -549,7 +840,9 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
   const yScale = v => M.top + innerH - ((v - yMin)/(yMax - yMin)) * innerH;
 
   const titleId = "charttitle-" + Math.random().toString(36).slice(2, 9);
+  const clipId = "plotclip-" + Math.random().toString(36).slice(2, 9);
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="${titleId}"><title id="${titleId}">${chartTitle || "Grafiek"}</title>`;
+  svg += `<defs><clipPath id="${clipId}"><rect x="${M.left}" y="${M.top}" width="${innerW}" height="${innerH}"></rect></clipPath></defs>`;
 
   const steps = 5;
   for (let i=0;i<=steps;i++){
@@ -564,6 +857,17 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
     const x = xScale(w);
     svg += `<text class="axislabel" x="${x}" y="${H-M.bottom+16}" text-anchor="middle">wk ${w}</text>`;
   }
+  // Deload weeks (from the plan) shaded as a translucent band, drawn after
+  // gridlines but before the data lines so it reads as background context.
+  if (deloadWeeks && deloadWeeks.length) {
+    deloadWeeks.forEach(w => {
+      if (w + 1 < xMin || w > xMax) return;
+      const x1 = xScale(Math.max(w, xMin));
+      const x2 = xScale(Math.min(w + 1, xMax));
+      svg += `<rect class="deload-band" x="${x1}" y="${M.top}" width="${Math.max(0, x2 - x1)}" height="${innerH}"></rect>`;
+    });
+  }
+
   svg += `<line class="axisline" x1="${M.left}" x2="${W-M.right}" y1="${H-M.bottom}" y2="${H-M.bottom}"></line>`;
 
   if (todayWeek != null && todayWeek >= xMin && todayWeek <= xMax) {
@@ -576,6 +880,12 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
     const d = targetSeries.map((p,i) => `${i===0?"M":"L"}${xScale(p.x)},${yScale(p.y)}`).join(" ");
     svg += `<path class="target-line" d="${d}"></path>`;
   }
+  // Trend projection: clipped to the plot area so an aggressive or far-future
+  // slope never spills outside the chart's fixed axes.
+  if (trendPts.length >= 2) {
+    const d = trendPts.map((p,i) => `${i===0?"M":"L"}${xScale(p.x)},${yScale(p.y)}`).join(" ");
+    svg += `<path class="trend-line" d="${d}" clip-path="url(#${clipId})"></path>`;
+  }
   let dotMeta = [];
   if (actualSeries.length) {
     const d = actualSeries.map((p,i) => `${i===0?"M":"L"}${xScale(p.x)},${yScale(p.y)}`).join(" ");
@@ -583,12 +893,18 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
     actualSeries.forEach((p, i) => {
       const cx = xScale(p.x), cy = yScale(p.y);
       const isPR = prIndex != null && i === prIndex;
+      // tabindex + explicit label so keyboard/screen-reader users can reach each
+      // point, not just mouse-hover users (the visual tooltip is a bonus on top).
       svg += `<circle class="${isPR ? "pr-dot" : "actual-dot"}" cx="${cx}" cy="${cy}" r="${isPR?5.5:4.5}" data-idx="${i}" tabindex="0" role="button" aria-label="${(p.label + (isPR ? " · persoonlijk record" : "")).replace(/"/g,'&quot;')}"></circle>`;
       dotMeta.push({cx, cy, label: p.label + (isPR ? " · PR" : "")});
     });
   }
   svg += `</svg>`;
 
+  // Visible, on-demand data table — the accessible (and keyboard-reachable)
+  // equivalent of the chart, per the dataviz skill's "a table view exists" rule.
+  // Built as part of the same innerHTML write so re-renders replace it cleanly
+  // instead of piling up duplicate <details> siblings on every sync/refresh.
   let tableHtml = "";
   if (actualSeries.length) {
     tableHtml = `<details class="chart-table"><summary>Toon als tabel</summary><table class="wtable"><thead><tr><th>Datum / week</th><th>Waarde</th></tr></thead><tbody>`;
@@ -600,6 +916,9 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
   }
   container.innerHTML = svg + tableHtml;
 
+  // Reparent the single shared tooltip node into this chart's own container
+  // (which is position:relative), so absolute positioning is always relative
+  // to the chart itself — simple and correct regardless of page scroll.
   const tooltip = document.getElementById("tooltip");
   container.appendChild(tooltip);
   container.querySelectorAll(".actual-dot, .pr-dot").forEach((el, i) => {
@@ -615,16 +934,19 @@ function buildChart(container, {targetSeries, actualSeries, xMaxWeek, xMinWeek, 
     el.addEventListener("mouseenter", show);
     el.addEventListener("mousemove", show);
     el.addEventListener("mouseleave", hide);
+    // Keyboard equivalent: Tab to a point, see its value; blur dismisses it.
     el.addEventListener("focus", show);
     el.addEventListener("blur", hide);
   });
 }
 
+/* ---------- bench chart/tiles ---------- */
 const benchTarget = PLAN.rows.map(r => ({x: r.week, y: r.e1rm_target}));
 const bwTarget = PLAN.bodyweight.map(b => ({x: b.week, y: b.bodyweight_target}));
+const benchDeloadWeeks = PLAN.rows.filter(r => r.deload).map(r => r.week);
 let currentTodayWeekBench = weekFromDate(new Date());
 
-function renderBenchChart(actualPoints) {
+function renderBenchChart(actualPoints, trendSeries) {
   const pts = actualPoints || [];
   const latestTxt = pts.length ? `, laatste gemeten e1RM ${fmt1(pts[pts.length-1].y)}kg` : ", nog geen gemeten data";
   buildChart(document.getElementById("benchChartWrap"), {
@@ -633,27 +955,103 @@ function renderBenchChart(actualPoints) {
     xMaxWeek: 23,
     todayWeek: currentTodayWeekBench,
     yDomain: [65, 105],
+    deloadWeeks: benchDeloadWeeks,
+    trendSeries: trendSeries || [],
     chartTitle: `Lijndiagram bankdrukken: doellijn van 80,7 tot 101 kg over 23 weken vergeleken met jouw werkelijke e1RM${latestTxt}.`,
   });
 }
-function renderBwChart(manualPoint) {
+
+// ---------- pace/trend projection: simple linear regression on recent e1RM points ----------
+function linearRegression(points) {
+  const n = points.length;
+  const xMean = points.reduce((s, p) => s + p.x, 0) / n;
+  const yMean = points.reduce((s, p) => s + p.y, 0) / n;
+  let num = 0, den = 0;
+  points.forEach(p => { num += (p.x - xMean) * (p.y - yMean); den += (p.x - xMean) ** 2; });
+  const slope = den === 0 ? 0 : num / den;
+  return { slope, intercept: yMean - slope * xMean };
+}
+
+function computeTrendProjection(history) {
+  const pts = history.slice(-8); // last up to 8 sessions — "current pace", not all-time average
+  if (pts.length < 2) return { status: "not-enough-data" };
+  const { slope, intercept } = linearRegression(pts);
+  if (slope <= 0.02) return { status: "flat-or-declining" };
+  const lastX = pts[pts.length - 1].x;
+  const weekAt100 = (100 - intercept) / slope;
+  if (!isFinite(weekAt100)) return { status: "flat-or-declining" };
+  if (weekAt100 <= lastX) {
+    // The fitted line already implies 100kg at or before the most recent
+    // session — a steep-then-plateauing trend, not a flat/declining one.
+    // Draw the fit up to "now" rather than mathematically project backwards.
+    const trendSeries = [{ x: pts[0].x, y: slope * pts[0].x + intercept }, { x: lastX, y: slope * lastX + intercept }];
+    return { status: "imminent", trendSeries };
+  }
+  if (weekAt100 - lastX > 60) return { status: "too-far" };
+  const planRow100 = PLAN.rows.find(r => r.e1rm_target >= 100);
+  const planWeek100 = planRow100 ? planRow100.week : 22;
+  const trendSeries = [
+    { x: pts[0].x, y: slope * pts[0].x + intercept },
+    { x: weekAt100, y: 100 },
+  ];
+  return { status: "ok", trendSeries, weekAt100, planWeek100, deltaWeeks: Math.round(planWeek100 - weekAt100) };
+}
+// actualPoints: real Hevy body_measurements history (preferred). manualPoints:
+// locally-added fallback points, only shown when Hevy has no logged weight yet.
+function renderBwChart(actualPoints, manualPoints) {
+  const real = actualPoints || [];
+  const manual = (!real.length && manualPoints) ? manualPoints : [];
+  const shown = real.length ? real : manual;
+  const latest = shown.length ? shown[shown.length - 1] : null;
   buildChart(document.getElementById("bwChartWrap"), {
     targetSeries: bwTarget,
-    actualSeries: manualPoint ? [manualPoint] : [],
+    actualSeries: shown,
     xMaxWeek: 42,
     todayWeek: weekFromDate(new Date()),
     yDomain: [68, 82],
-    chartTitle: "Lijndiagram lichaamsgewicht: doellijn van 70 naar 80 kg over 42 weken" + (manualPoint ? `, jouw invoer ${fmt1(manualPoint.y)}kg` : ", nog geen invoer") + ".",
+    chartTitle: "Lijndiagram lichaamsgewicht: doellijn van 70 naar 80 kg over 42 weken" + (latest ? `, laatste meting ${fmt1(latest.y)}kg` : ", nog geen meting") + ".",
   });
+  return latest;
 }
 renderBenchChart([]);
-renderBwChart(null);
+renderBwChart([], []);
+
+// Rough, clearly-labelled rule-of-thumb tiers for raw bench press relative
+// to bodyweight (not a scientific standard — just useful motivational context).
+function benchStrengthTier(ratio) {
+  if (ratio == null) return null;
+  if (ratio < 0.75) return "beginnend";
+  if (ratio < 1.25) return "gemiddeld";
+  if (ratio < 1.75) return "gevorderd";
+  return "sterk gevorderd";
+}
+
+function updateProgressBar(latestE1rm) {
+  const pct = latestE1rm != null ? Math.max(0, Math.min(100, ((latestE1rm - 80) / (100 - 80)) * 100)) : 0;
+  document.getElementById("benchProgressFill").style.width = pct + "%";
+  document.getElementById("benchProgressPct").textContent = Math.round(pct) + "%";
+}
+
+function updateBenchRatio(latestE1rm, bodyweightKg) {
+  const el = document.getElementById("benchRatio");
+  const sub = document.getElementById("benchRatioSub");
+  if (latestE1rm == null || !bodyweightKg) {
+    el.textContent = "–";
+    sub.textContent = "vul je gewicht in bij Lichaamsgewicht";
+    return;
+  }
+  const ratio = latestE1rm / bodyweightKg;
+  el.textContent = ratio.toFixed(2) + "×";
+  const tier = benchStrengthTier(ratio);
+  sub.textContent = `${tier} (ruwe vuistregel, geen wetenschappelijke norm)`;
+}
 
 function updateStatusTiles(latestE1rm, latestDate) {
   const wk = Math.min(23, Math.max(0, currentTodayWeekBench));
   const targetNow = wk <= 0 ? 80 : (PLAN.rows.find(r => r.week === wk)?.e1rm_target || 80);
   document.getElementById("tileCurrent").textContent = latestE1rm != null ? fmt1(latestE1rm) + " kg" : "–";
   document.getElementById("tileCurrentSub").textContent = latestDate ? ("op " + latestDate) : "geen bankdruk-data gevonden";
+  updateProgressBar(latestE1rm);
 
   const statusEl = document.getElementById("tileStatus");
   const statusSub = document.getElementById("tileStatusSub");
@@ -676,6 +1074,7 @@ function updateStatusTiles(latestE1rm, latestDate) {
 }
 updateStatusTiles(null, null);
 
+/* ---------- accessory (dips/pull-ups) tiles ---------- */
 function updateAccessoryTiles(key, history) {
   const cur = document.getElementById(key + "Current");
   const curSub = document.getElementById(key + "CurrentSub");
@@ -725,13 +1124,14 @@ function renderAccessoryChart(key, history) {
     targetSeries: [],
     actualSeries: history,
     xMaxWeek: Math.max(maxWeek, minWeek + 4),
-    todayWeek: null,
+    todayWeek: weekFromDate(new Date()),
     yDomain: [Math.floor(Math.min(...vals, 0) - 2), Math.ceil(Math.max(...vals) + 2)],
     prIndex: prIdx,
     chartTitle: `Lijndiagram ${EXERCISES[key].label}: extra gewicht e1RM per sessie, geen vast doel. Persoonlijk record ${fmt1(history[prIdx].y)}kg.`,
   });
 }
 
+/* ---------- tip engines ---------- */
 function benchTipText(history) {
   if (!history.length) return "Nog geen bankdruk-sets gevonden in Hevy. Zodra je een sessie logt, verschijnt hier een gerichte tip.";
   const latest = history[history.length - 1];
@@ -766,6 +1166,7 @@ function accessoryTipText(key, latestSets) {
   return `Je zit met ${weightTxt} in de juiste range (${cfg.range[0]}-${cfg.range[1]} reps) maar nog niet overal bovenaan (laagste set: ${minReps}). Blijf op dit gewicht tot alle sets ${cfg.range[1]}+ reps halen.`;
 }
 
+/* ---------- Hevy sync ---------- */
 const syncdot = document.getElementById("syncdot");
 const syncstatus = document.getElementById("syncstatus");
 const fallbackCard = document.getElementById("fallbackCard");
@@ -775,36 +1176,66 @@ function setSync(state, text) {
   syncstatus.textContent = text;
 }
 
-async function fetchHevyWorkouts(pages, pageSize, authHeaderName) {
+// Low-level authed GET against one Hevy endpoint, trying the given auth
+// header style. Thrown errors carry .status so callers can decide whether
+// to retry with the other auth style (api-key vs Authorization: Bearer).
+async function hevyGet(path, authHeaderName) {
   const apiKey = getApiKey();
+  const headers = { "Accept": "application/json" };
+  headers[authHeaderName] = authHeaderName === "Authorization" ? `Bearer ${apiKey}` : apiKey;
+  const res = await fetch(`${HEVY_BASE}${path}`, { headers });
+  if (!res.ok) {
+    const err = new Error("HTTP " + res.status);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+// Paginated GET, following `page`/`pageSize` until a short page signals the end.
+async function hevyGetPaginated(basePath, itemsKey, maxPages, pageSize, authHeaderName) {
   const all = [];
-  for (let page = 1; page <= pages; page++) {
-    const headers = { "Accept": "application/json" };
-    headers[authHeaderName] = authHeaderName === "Authorization" ? `Bearer ${apiKey}` : apiKey;
-    const res = await fetch(`${HEVY_BASE}/workouts?page=${page}&pageSize=${pageSize}`, { headers });
-    if (!res.ok) {
-      const err = new Error("HTTP " + res.status);
-      err.status = res.status;
-      throw err;
-    }
-    const data = await res.json();
-    const workouts = data.workouts || data.items || [];
-    if (!workouts.length) break;
-    all.push(...workouts);
-    if (workouts.length < pageSize) break;
+  for (let page = 1; page <= maxPages; page++) {
+    const sep = basePath.includes("?") ? "&" : "?";
+    const data = await hevyGet(`${basePath}${sep}page=${page}&pageSize=${pageSize}`, authHeaderName);
+    const items = data[itemsKey] || data.items || [];
+    if (!items.length) break;
+    all.push(...items);
+    if (items.length < pageSize) break;
   }
   return all;
 }
 
-async function fetchHevyWithFallback(pages, pageSize) {
+// Every Hevy call first tries the "api-key" header (per the public docs);
+// on a 401/403 it retries once with "Authorization: Bearer" in case that's
+// what this account/proxy expects, instead of failing outright.
+async function hevyWithFallback(fn) {
   try {
-    return await fetchHevyWorkouts(pages, pageSize, "api-key");
+    return await fn("api-key");
   } catch (err) {
     if (err.status === 401 || err.status === 403) {
-      return await fetchHevyWorkouts(pages, pageSize, "Authorization");
+      return await fn("Authorization");
     }
     throw err;
   }
+}
+
+async function fetchHevyWithFallback(pages, pageSize) {
+  return hevyWithFallback(auth => hevyGetPaginated("/workouts", "workouts", pages, pageSize, auth));
+}
+
+// GET /v1/body_measurements — includes weight_kg per logged date. This lets
+// the bodyweight chart sync live from Hevy instead of relying only on the
+// one-off manual entry fallback.
+async function fetchBodyMeasurements() {
+  return hevyWithFallback(auth => hevyGetPaginated("/body_measurements", "body_measurements", 15, 10, auth));
+}
+
+// GET /v1/workouts/count — a lightweight all-time total, independent of the
+// 90-day charting window, for the "totaal workouts" stat tile.
+async function fetchWorkoutCount() {
+  const data = await hevyWithFallback(auth => hevyGet("/workouts/count", auth));
+  return data.workout_count ?? data.count ?? null;
 }
 
 function renderLastWorkout(w) {
@@ -829,26 +1260,256 @@ function extractExerciseData(workouts, matcher) {
     const date = new Date(w.start_time || w.created_at);
     (w.exercises || []).forEach(ex => {
       if (!matcher(ex.title || "")) return;
+      // Exclude warm-up sets — they're lighter by design and would corrupt
+      // the "top set of the day" reading used for e1RM and the coaching tip.
       const sets = (ex.sets || []).filter(s => s.reps != null && s.type !== "warmup");
       if (!sets.length) return;
       let best = null;
+      let tonnage = 0;
+      const rpes = [];
       sets.forEach(s => {
         const wgt = s.weight_kg || 0;
         const e = epley(wgt, s.reps);
+        tonnage += wgt * s.reps;
+        if (typeof s.rpe === "number") rpes.push(s.rpe);
         if (!best || e > best.e1rm) best = { weight: wgt, reps: s.reps, e1rm: e };
       });
       if (best) {
-        history.push({ x: weekFromDate(date), y: best.e1rm, weight: best.weight, reps: best.reps, e1rm: best.e1rm, date, label: `${date.toLocaleDateString("nl-NL")} · ${best.weight>0?"+"+fmt1(best.weight)+"kg":"lichaamsgew."} × ${best.reps} (e1RM ${fmt1(best.e1rm)}kg)` });
+        const avgRpe = rpes.length ? rpes.reduce((a, b) => a + b, 0) / rpes.length : null;
+        history.push({
+          x: weekFromDate(date), y: best.e1rm, weight: best.weight, reps: best.reps, e1rm: best.e1rm, date,
+          tonnage, avgRpe, setCount: sets.length,
+          label: `${date.toLocaleDateString("nl-NL")} · ${best.weight>0?"+"+fmt1(best.weight)+"kg":"lichaamsgew."} × ${best.reps} (e1RM ${fmt1(best.e1rm)}kg)`,
+        });
       }
       if (!latestEntry || date > latestEntry.date) latestEntry = { date, sets };
     });
   });
+  // Sort by the actual timestamp, not the derived week number — two sessions
+  // in the same program week previously could come out in the wrong order,
+  // which made "latest" pick a stale/wrong session for the tiles.
   history.sort((a, b) => a.date - b.date);
   return { history, latestSets: latestEntry ? latestEntry.sets : [] };
 }
 
+// All-time top sets (not limited to the 90-day charting cutoff), for the
+// "persoonlijke records" table — highest e1RM first, capped at 5 rows.
+function allTimeTopSets(history) {
+  return [...history].sort((a, b) => b.e1rm - a.e1rm).slice(0, 5);
+}
+
+function renderAllTimeTable(container, history, label) {
+  if (!history.length) {
+    container.innerHTML = `<div class="empty">Nog geen "${label}"-sets gevonden.</div>`;
+    return;
+  }
+  const top = allTimeTopSets(history);
+  let html = `<table class="wtable"><thead><tr><th>#</th><th>Datum</th><th>Gewicht × reps</th><th>e1RM</th></tr></thead><tbody>`;
+  top.forEach((h, i) => {
+    const wtxt = h.weight > 0 ? `+${fmt1(h.weight)}kg` : "lichaamsgew.";
+    html += `<tr class="${i === 0 ? "highlight-row" : ""}"><td>${i + 1}</td><td>${fmtDate(h.date)}</td><td>${wtxt} × ${h.reps}</td><td>${fmt1(h.e1rm)}kg</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+// ---------- tonnage mini bar chart ----------
+// A simpler companion to buildChart: bars instead of a line, since tonnage
+// is a per-session total rather than a continuous progression.
+function buildTonnageChart(container, history) {
+  if (!history.length) { container.innerHTML = `<div class="empty">Nog geen sessies om tonnage van te tonen.</div>`; return; }
+  const W = 900, H = 220, M = {top: 16, right: 16, bottom: 28, left: 46};
+  const innerW = W - M.left - M.right, innerH = H - M.top - M.bottom;
+  const vals = history.map(h => h.tonnage);
+  const yMax = Math.ceil(Math.max(...vals) * 1.15 / 50) * 50 || 100;
+  const n = history.length;
+  const bw = Math.min(48, innerW / n * 0.6);
+  const step = innerW / n;
+  const titleId = "tonnagetitle-" + Math.random().toString(36).slice(2, 9);
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="${titleId}"><title id="${titleId}">Staafdiagram tonnage per sessie, van ${fmt1(vals[0])}kg tot ${fmt1(vals[vals.length-1])}kg.</title>`;
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const v = yMax * i / steps;
+    const y = M.top + innerH - (v / yMax) * innerH;
+    svg += `<line class="gridline" x1="${M.left}" x2="${W-M.right}" y1="${y}" y2="${y}"></line>`;
+    svg += `<text class="axislabel" x="${M.left-8}" y="${y+3}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  svg += `<line class="axisline" x1="${M.left}" x2="${W-M.right}" y1="${H-M.bottom}" y2="${H-M.bottom}"></line>`;
+  history.forEach((h, i) => {
+    const cx = M.left + step * i + step / 2;
+    const barH = (h.tonnage / yMax) * innerH;
+    const y = H - M.bottom - barH;
+    svg += `<rect class="tonnage-bar" x="${cx - bw/2}" y="${y}" width="${bw}" height="${barH}" fill="var(--series-2)" rx="3" tabindex="0" role="button" aria-label="${fmtDate(h.date)}: ${fmt1(h.tonnage)}kg tonnage"></rect>`;
+    if (n <= 14 || i % Math.ceil(n/14) === 0) {
+      svg += `<text class="axislabel" x="${cx}" y="${H-M.bottom+16}" text-anchor="middle">${fmtDate(h.date)}</text>`;
+    }
+  });
+  svg += `</svg>`;
+  container.innerHTML = svg;
+}
+
+// ---------- streak (consecutive trained weeks) ----------
+function computeStreak(allTrackedDates) {
+  const weeks = new Set(allTrackedDates.map(d => weekFromDate(d)));
+  const nowWeek = weekFromDate(new Date());
+  let streak = 0;
+  for (let w = nowWeek; w > nowWeek - 52; w--) {
+    if (weeks.has(w)) streak++;
+    else break;
+  }
+  const last12 = [];
+  for (let w = nowWeek - 11; w <= nowWeek; w++) last12.push(weeks.has(w));
+  return { streak, last12 };
+}
+
+// ---------- achievement badges ----------
+function computeAchievements({ benchAll, dipsAll, pullupsAll, workoutCount, streak }) {
+  const list = [];
+  const maxBench = benchAll.length ? Math.max(...benchAll.map(h => h.e1rm)) : 0;
+  [85, 90, 95, 100].forEach(mark => {
+    if (maxBench >= mark) list.push({ id: `bench-${mark}`, icon: "🏋️", title: `${mark}kg bankdruk-e1RM`, desc: "geschat 1RM bereikt" });
+  });
+  if (dipsAll.length) list.push({ id: "dips-first", icon: "💪", title: "Eerste weighted dip", desc: "gelogd in Hevy" });
+  if (pullupsAll.length) list.push({ id: "pullups-first", icon: "🧗", title: "Eerste weighted pull-up", desc: "gelogd in Hevy" });
+  const maxDips = dipsAll.length ? Math.max(...dipsAll.map(h => h.weight)) : 0;
+  const maxPullups = pullupsAll.length ? Math.max(...pullupsAll.map(h => h.weight)) : 0;
+  [10, 20, 30].forEach(mark => { if (maxDips >= mark) list.push({ id: `dips-${mark}`, icon: "🔗", title: `+${mark}kg weighted dip`, desc: "zwaarste extra gewicht" }); });
+  [5, 10, 15].forEach(mark => { if (maxPullups >= mark) list.push({ id: `pullups-${mark}`, icon: "🔗", title: `+${mark}kg weighted pull-up`, desc: "zwaarste extra gewicht" }); });
+  if (streak >= 4) list.push({ id: "streak-4", icon: "🔥", title: `${streak} weken op rij getraind`, desc: "consistentie" });
+  if (workoutCount != null) {
+    [10, 25, 50, 100].forEach(mark => { if (workoutCount >= mark) list.push({ id: `count-${mark}`, icon: "📈", title: `${mark} workouts gelogd`, desc: "totaal in Hevy" }); });
+  }
+  return list;
+}
+
+function renderAchievements(container, achievements) {
+  if (!achievements.length) { container.innerHTML = `<div class="empty">Nog geen prestaties — begin met loggen in Hevy.</div>`; return; }
+  const seen = JSON.parse(localStorage.getItem("seenAchievements") || "[]");
+  container.innerHTML = achievements.map(a => `
+    <div class="achievement${seen.includes(a.id) ? "" : " isnew"}">
+      <span class="aicon" aria-hidden="true">${a.icon}</span>
+      <span class="atext"><span class="atitle">${a.title}${seen.includes(a.id) ? "" : ' <span class="newtag">nieuw</span>'}</span><span class="adesc">${a.desc}</span></span>
+    </div>
+  `).join("");
+  localStorage.setItem("seenAchievements", JSON.stringify(achievements.map(a => a.id)));
+}
+
+// ---------- "since your last visit" snapshot ----------
+function compareAndRenderVisitBanner(snapshot) {
+  const banner = document.getElementById("visitBanner");
+  const list = document.getElementById("visitList");
+  const prevRaw = localStorage.getItem("lastSnapshot");
+  localStorage.setItem("lastSnapshot", JSON.stringify(snapshot));
+  if (!prevRaw) { banner.style.display = "none"; return; }
+  let prev;
+  try { prev = JSON.parse(prevRaw); } catch { banner.style.display = "none"; return; }
+  const items = [];
+  if (snapshot.benchE1rm != null && prev.benchE1rm != null && snapshot.benchE1rm !== prev.benchE1rm) {
+    const d = snapshot.benchE1rm - prev.benchE1rm;
+    items.push(`Bankdruk e1RM: ${d > 0 ? "+" : ""}${fmt1(d)}kg (nu ${fmt1(snapshot.benchE1rm)}kg)`);
+  }
+  if (snapshot.dipsMax != null && prev.dipsMax != null && snapshot.dipsMax > prev.dipsMax) {
+    items.push(`Nieuw PR weighted dips: +${fmt1(snapshot.dipsMax)}kg`);
+  }
+  if (snapshot.pullupsMax != null && prev.pullupsMax != null && snapshot.pullupsMax > prev.pullupsMax) {
+    items.push(`Nieuw PR weighted pull-ups: +${fmt1(snapshot.pullupsMax)}kg`);
+  }
+  if (snapshot.workoutCount != null && prev.workoutCount != null && snapshot.workoutCount > prev.workoutCount) {
+    items.push(`${snapshot.workoutCount - prev.workoutCount} nieuwe workout(s) gelogd sinds je laatste bezoek`);
+  }
+  if (!items.length) { banner.style.display = "none"; return; }
+  list.innerHTML = items.map(t => `<li>${t}</li>`).join("");
+  banner.style.display = "block";
+}
+
+// ---------- export chart SVG as PNG ----------
+function exportSvgAsPng(container, filename) {
+  const svgEl = container.querySelector("svg");
+  if (!svgEl) return;
+  const svgData = new XMLSerializer().serializeToString(svgEl);
+  const bg = getComputedStyle(document.body).getPropertyValue("--card-bg") || "#ffffff";
+  const svgWithBg = svgData.replace("<svg ", `<svg style="background:${bg.trim()}" `);
+  const svgBlob = new Blob([svgWithBg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+    });
+  };
+  img.src = url;
+}
+
 let anyDataFound = false;
 const apiKeyCard = document.getElementById("apiKeyCard");
+let latestBodyweightKg = null;
+let latestBenchE1rmGlobal = null;
+
+/* ---------- compliance: latest session's sets vs. that week's plan target ---------- */
+function computeCompliance(latestSets, planRow) {
+  const working = (latestSets || []).filter(s => s.type !== "warmup" && s.reps != null);
+  if (!working.length || !planRow) return null;
+  const met = working.filter(s => (s.weight_kg || 0) >= planRow.top_weight && s.reps >= planRow.top_reps).length;
+  return { met, total: working.length };
+}
+
+/* ---------- pre-session check-in (soreness/how you feel), local-only ---------- */
+function loadCheckins() {
+  try { return JSON.parse(localStorage.getItem("checkins") || "[]"); } catch { return []; }
+}
+function saveCheckin(val) {
+  const entries = loadCheckins();
+  const today = new Date().toISOString().slice(0, 10);
+  const idx = entries.findIndex(e => e.date === today);
+  const entry = { date: today, val };
+  if (idx >= 0) entries[idx] = entry; else entries.push(entry);
+  localStorage.setItem("checkins", JSON.stringify(entries.slice(-60)));
+}
+function recentSorenessHigh() {
+  const entries = loadCheckins().slice(-3);
+  if (entries.length < 2) return false;
+  return (entries.reduce((s, e) => s + e.val, 0) / entries.length) >= 4;
+}
+function withSorenessCaution(tipText) {
+  if (!recentSorenessHigh()) return tipText;
+  return tipText + " Je gaf de laatste keer(en) aan dat je lichaam zwaar/pijnlijk aanvoelt — overweeg dit gewicht te herhalen in plaats van te verzwaren, of neem een extra rustdag.";
+}
+function renderCheckinLog() {
+  const entries = loadCheckins().slice(-5).reverse();
+  const log = document.getElementById("checkinLog");
+  log.textContent = entries.length ? "Laatste invoer: " + entries.map(e => `${e.date}: ${e.val}/5`).join(" · ") : "Nog geen invoer.";
+  const today = new Date().toISOString().slice(0, 10);
+  const todays = entries.find(e => e.date === today);
+  document.querySelectorAll("#checkinScale button").forEach(b => {
+    b.setAttribute("aria-pressed", todays && String(todays.val) === b.dataset.val ? "true" : "false");
+  });
+}
+document.querySelectorAll("#checkinScale button").forEach(b => {
+  b.addEventListener("click", () => { saveCheckin(Number(b.dataset.val)); renderCheckinLog(); });
+});
+renderCheckinLog();
+
+/* ---------- manual (locally-stored) bodyweight points, used only when Hevy has none ---------- */
+function loadManualBwPoints() {
+  try { return (JSON.parse(localStorage.getItem("manualBodyweightPoints") || "[]")).map(p => ({...p, date: new Date(p.dateISO)})); }
+  catch { return []; }
+}
+function saveManualBwPoint(point) {
+  const pts = loadManualBwPoints();
+  pts.push({ x: point.x, y: point.y, label: point.label, dateISO: point.date.toISOString() });
+  localStorage.setItem("manualBodyweightPoints", JSON.stringify(pts.slice(-50)));
+}
 
 async function syncHevy() {
   if (!getApiKey()) {
@@ -869,27 +1530,181 @@ async function syncHevy() {
     workouts.sort((a, b) => new Date(b.start_time || b.created_at) - new Date(a.start_time || a.created_at));
     renderLastWorkout(workouts[0]);
 
+    // Only chart sessions from roughly the current training block onward —
+    // older history (from before this program, or unrelated past stints)
+    // otherwise piles up at/near week 0 and turns the chart into noise.
     const cutoff = new Date(PROGRAM_START.getTime() - 90 * 24 * 3600 * 1000);
     const recentWorkouts = workouts.filter(w => new Date(w.start_time || w.created_at) >= cutoff);
 
     const bench = extractExerciseData(recentWorkouts, EXERCISES.bench.match);
     const dips = extractExerciseData(recentWorkouts, EXERCISES.dips.match);
     const pullups = extractExerciseData(recentWorkouts, EXERCISES.pullups.match);
+    // All-time variants (unfiltered by the 90-day window) feed the PR tables
+    // and achievement badges — a PR from before this program still counts.
+    const benchAll = extractExerciseData(workouts, EXERCISES.bench.match);
+    const dipsAll = extractExerciseData(workouts, EXERCISES.dips.match);
+    const pullupsAll = extractExerciseData(workouts, EXERCISES.pullups.match);
 
-    renderBenchChart(bench.history);
+    const trend = computeTrendProjection(bench.history);
+    renderBenchChart(bench.history, trend.trendSeries);
+    const trendNote = document.getElementById("trendNote");
+    if (trend.status === "ok") {
+      const wk = Math.round(trend.weekAt100);
+      const dateAt100 = new Date(PROGRAM_START.getTime() + (wk - 1) * 7 * 24 * 3600 * 1000);
+      const dateTxt = dateAt100.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+      const absDelta = Math.abs(trend.deltaWeeks);
+      const weekWord = `week${absDelta === 1 ? "" : "en"}`;
+      if (trend.deltaWeeks > 0) {
+        trendNote.textContent = `Op je huidige tempo (laatste sessies) haal je 100kg rond week ${wk} (${dateTxt}) — ongeveer ${absDelta} ${weekWord} eerder dan het schema (week ${trend.planWeek100}).`;
+      } else if (trend.deltaWeeks < 0) {
+        trendNote.textContent = `Op je huidige tempo (laatste sessies) haal je 100kg rond week ${wk} (${dateTxt}) — ongeveer ${absDelta} ${weekWord} later dan het schema (week ${trend.planWeek100}).`;
+      } else {
+        trendNote.textContent = `Op je huidige tempo haal je 100kg rond week ${wk} (${dateTxt}) — precies op schema.`;
+      }
+    } else if (trend.status === "imminent") {
+      trendNote.textContent = "Op je huidige tempo (laatste sessies) zit je al griezelig dicht bij 100kg — dat kan bij een van je eerstvolgende zware sessies al vallen.";
+    } else if (trend.status === "flat-or-declining") {
+      trendNote.textContent = "Je tempo van de laatste sessies is vlak of dalend — geen betrouwbare voorspelling te maken. Dat is normaal tijdens een deload-week.";
+    } else if (trend.status === "too-far") {
+      trendNote.textContent = "Op je huidige tempo duurt het langer dan een jaar om 100kg te bereiken — een teken om het schema strikter te volgen of te overleggen over de opbouw.";
+    } else {
+      trendNote.textContent = "Nog te weinig sessies voor een tempovoorspelling.";
+    }
+
+    let latestBenchE1rm = null;
     if (bench.history.length) {
       const latest = bench.history[bench.history.length - 1];
+      latestBenchE1rm = latest.e1rm;
+      latestBenchE1rmGlobal = latest.e1rm;
       updateStatusTiles(latest.e1rm, latest.date.toLocaleDateString("nl-NL"));
+      const wk = Math.min(23, Math.max(1, latest.x));
+      const planRow = PLAN.rows.find(r => r.week === wk);
+      const compliance = computeCompliance(bench.latestSets, planRow);
+      const compEl = document.getElementById("complianceValue");
+      const compSub = document.getElementById("complianceSub");
+      if (compliance) {
+        compEl.textContent = `${compliance.met}/${compliance.total}`;
+        compSub.textContent = compliance.met === compliance.total ? "alle sets op schema" : "sets op schema-gewicht × reps";
+      } else {
+        compEl.textContent = "–";
+        compSub.textContent = "geen recente sessie";
+      }
+    } else {
+      updateProgressBar(null);
     }
-    document.getElementById("benchTip").textContent = benchTipText(bench.history);
+    document.getElementById("benchTip").textContent = withSorenessCaution(benchTipText(bench.history));
+    renderAllTimeTable(document.getElementById("benchAllTimeTable"), benchAll.history, EXERCISES.bench.label);
 
     renderAccessoryChart("dips", dips.history);
     updateAccessoryTiles("dips", dips.history);
-    document.getElementById("dipsTip").textContent = accessoryTipText("dips", dips.latestSets);
+    document.getElementById("dipsTip").textContent = withSorenessCaution(accessoryTipText("dips", dips.latestSets));
+    renderAllTimeTable(document.getElementById("dipsAllTimeTable"), dipsAll.history, EXERCISES.dips.label);
+    buildTonnageChart(document.getElementById("dipsTonnageWrap"), dips.history);
 
     renderAccessoryChart("pullups", pullups.history);
     updateAccessoryTiles("pullups", pullups.history);
-    document.getElementById("pullupsTip").textContent = accessoryTipText("pullups", pullups.latestSets);
+    document.getElementById("pullupsTip").textContent = withSorenessCaution(accessoryTipText("pullups", pullups.latestSets));
+    renderAllTimeTable(document.getElementById("pullupsAllTimeTable"), pullupsAll.history, EXERCISES.pullups.label);
+    buildTonnageChart(document.getElementById("pullupsTonnageWrap"), pullups.history);
+
+    buildTonnageChart(document.getElementById("benchTonnageWrap"), bench.history);
+
+    // Next-session prescription: purely date/plan-driven, independent of sync success.
+    const nsWeek = Math.min(23, Math.max(1, currentTodayWeekBench));
+    const nsRow = PLAN.rows.find(r => r.week === nsWeek) || PLAN.rows[0];
+    document.getElementById("nextSessionMeta").textContent = `Week ${nsRow.week} van 23 · ${nsRow.phase_name}${nsRow.deload ? " · deload-week" : ""}`;
+    document.getElementById("nextSessionWeight").textContent = `${nsRow.top_weight}kg`;
+    document.getElementById("nextSessionReps").textContent = `× ${nsRow.top_reps} reps (topset)`;
+
+    // 1–10 rep table from the current e1RM.
+    const repTableEl = document.getElementById("repTable");
+    if (latestBenchE1rm != null) {
+      let rtRows = "";
+      for (let r = 1; r <= 10; r++) {
+        const w = Math.round((latestBenchE1rm / (1 + r / 30)) / 2.5) * 2.5;
+        rtRows += `<tr${r === 1 ? ' class="highlight-row"' : ""}><td>${r}</td><td>${fmt1(w)}kg</td></tr>`;
+      }
+      repTableEl.innerHTML = `<table class="wtable"><thead><tr><th>Reps</th><th>Richtgewicht</th></tr></thead><tbody>${rtRows}</tbody></table>`;
+    } else {
+      repTableEl.innerHTML = `<div class="empty">Nog geen e1RM bekend.</div>`;
+    }
+
+    // Combined overview strip (all 3 lifts, visible without switching tabs).
+    const ovBenchEl = document.getElementById("ovBench");
+    const ovBenchSubEl = document.getElementById("ovBenchSub");
+    if (latestBenchE1rm != null) { ovBenchEl.textContent = fmt1(latestBenchE1rm) + " kg"; ovBenchSubEl.textContent = "geschat 1RM"; }
+    else { ovBenchEl.textContent = "–"; ovBenchSubEl.textContent = "geen data"; }
+    function updateOverviewTile(key, hist) {
+      const cap = key[0].toUpperCase() + key.slice(1);
+      const el = document.getElementById("ov" + cap), sub = document.getElementById("ov" + cap + "Sub");
+      if (!hist.length) { el.textContent = "–"; sub.textContent = "geen data"; return; }
+      const latest = hist[hist.length - 1];
+      el.textContent = (latest.weight > 0 ? "+" : "") + fmt1(latest.weight) + " kg";
+      sub.textContent = `${latest.reps} reps, laatste sessie`;
+    }
+    updateOverviewTile("dips", dips.history);
+    updateOverviewTile("pullups", pullups.history);
+
+    // Push/pull balance, using all-time PRs (not just the recent charting window).
+    const dipsMaxAll = dipsAll.history.length ? Math.max(...dipsAll.history.map(h => h.weight)) : null;
+    const pullupsMaxAll = pullupsAll.history.length ? Math.max(...pullupsAll.history.map(h => h.weight)) : null;
+    const ppEl = document.getElementById("pushPullRatio");
+    const ppSub = document.getElementById("pushPullSub");
+    if (dipsMaxAll != null && pullupsMaxAll) {
+      ppEl.textContent = (dipsMaxAll / pullupsMaxAll).toFixed(2) + " : 1";
+      ppSub.textContent = `+${fmt1(dipsMaxAll)}kg dips vs. +${fmt1(pullupsMaxAll)}kg pull-ups (all-time beste)`;
+    } else {
+      ppEl.textContent = "–";
+      ppSub.textContent = "log beide oefeningen om dit te zien";
+    }
+
+    // Workout count (all-time, independent of the charting cutoff) + streak,
+    // computed from ALL sessions that touched any of the three tracked lifts.
+    let workoutCount = null;
+    try { workoutCount = await fetchWorkoutCount(); } catch (e) { console.warn("workout count failed", e); }
+    document.getElementById("workoutCountTile").textContent = workoutCount != null ? workoutCount : "–";
+
+    const trackedDates = [...benchAll.history, ...dipsAll.history, ...pullupsAll.history].map(h => h.date);
+    const { streak, last12 } = computeStreak(trackedDates);
+    document.getElementById("streakValue").textContent = streak;
+    document.getElementById("streakRow").innerHTML = last12.map(t => `<span class="streakdot${t ? " trained" : ""}"></span>`).join("");
+
+    // Bodyweight: prefer Hevy's own body_measurements; fall back to locally
+    // stored manual points only when Hevy has no logged weight at all.
+    let bwHistory = [];
+    try {
+      const measurements = await fetchBodyMeasurements();
+      bwHistory = measurements
+        .filter(m => m.weight_kg != null)
+        .map(m => { const d = new Date(m.date); return { x: weekFromDate(d), y: m.weight_kg, date: d, label: `${d.toLocaleDateString("nl-NL")} · ${fmt1(m.weight_kg)}kg` }; })
+        .sort((a, b) => a.date - b.date);
+    } catch (e) { console.warn("body measurements failed", e); }
+    const bwSourceBadge = document.getElementById("bwSourceBadge");
+    const bwLatest = renderBwChart(bwHistory, loadManualBwPoints());
+    if (bwHistory.length) {
+      bwSourceBadge.innerHTML = `<span class="dot"></span>Live vanuit Hevy (${bwHistory.length} metingen)`;
+      bwSourceBadge.className = "badge good";
+    } else if (loadManualBwPoints().length) {
+      bwSourceBadge.innerHTML = `<span class="dot"></span>Lokale invoer (nog niets in Hevy gelogd)`;
+      bwSourceBadge.className = "badge warn";
+    } else {
+      bwSourceBadge.innerHTML = `<span class="dot"></span>Nog geen data`;
+      bwSourceBadge.className = "badge neutral";
+    }
+    latestBodyweightKg = bwLatest ? bwLatest.y : null;
+    updateBenchRatio(latestBenchE1rm, latestBodyweightKg);
+
+    // Achievements, computed from all-time data.
+    const achievements = computeAchievements({ benchAll: benchAll.history, dipsAll: dipsAll.history, pullupsAll: pullupsAll.history, workoutCount, streak });
+    renderAchievements(document.getElementById("achievementsWrap"), achievements);
+
+    // "Since your last visit" — compare this sync's key numbers to the last saved snapshot.
+    compareAndRenderVisitBanner({
+      benchE1rm: latestBenchE1rm,
+      dipsMax: dipsAll.history.length ? Math.max(...dipsAll.history.map(h => h.weight)) : null,
+      pullupsMax: pullupsAll.history.length ? Math.max(...pullupsAll.history.map(h => h.weight)) : null,
+      workoutCount,
+    });
 
     anyDataFound = bench.history.length || dips.history.length || pullups.history.length;
     if (anyDataFound) {
@@ -926,6 +1741,12 @@ document.getElementById("apiKeyInput").addEventListener("keydown", (e) => {
 });
 syncHevy();
 
+/* ---------- export-as-image buttons ---------- */
+document.getElementById("benchExportBtn").addEventListener("click", () => exportSvgAsPng(document.getElementById("benchChartWrap"), "bankdrukken-voortgang.png"));
+document.getElementById("dipsExportBtn").addEventListener("click", () => exportSvgAsPng(document.getElementById("dipsChartWrap"), "weighted-dips-voortgang.png"));
+document.getElementById("pullupsExportBtn").addEventListener("click", () => exportSvgAsPng(document.getElementById("pullupsChartWrap"), "weighted-pullups-voortgang.png"));
+
+/* ---------- manual fallback entry (session only) ---------- */
 document.getElementById("manBtn").addEventListener("click", () => {
   const key = document.getElementById("manEx").value;
   const w = parseFloat(document.getElementById("manW").value);
@@ -938,24 +1759,31 @@ document.getElementById("manBtn").addEventListener("click", () => {
   if (key === "bench") {
     renderBenchChart([point]);
     updateStatusTiles(e, "handmatige invoer");
-    document.getElementById("benchTip").textContent = benchTipText([point]);
+    latestBenchE1rmGlobal = e;
+    updateBenchRatio(e, latestBodyweightKg);
+    document.getElementById("benchTip").textContent = withSorenessCaution(benchTipText([point]));
   } else {
     renderAccessoryChart(key, [point]);
     updateAccessoryTiles(key, [point]);
-    document.getElementById(key + "Tip").textContent = accessoryTipText(key, [{ weight_kg: weight, reps: r }]);
+    document.getElementById(key + "Tip").textContent = withSorenessCaution(accessoryTipText(key, [{ weight_kg: weight, reps: r }]));
   }
 });
 
+/* ---------- bodyweight manual entry (local fallback only) ---------- */
 document.getElementById("bwBtn").addEventListener("click", () => {
   const w = parseFloat(document.getElementById("bwInput").value);
   const note = document.getElementById("bwNote");
   if (!w) return;
   const wk = Math.min(42, Math.max(0, weekFromDate(new Date())));
   const target = PLAN.bodyweight.find(b => b.week === wk)?.bodyweight_target ?? 70;
-  const point = { x: wk, y: w, label: `Vandaag · ${fmt1(w)}kg` };
-  renderBwChart(point);
+  const now = new Date();
+  const point = { x: wk, y: w, date: now, label: `Lokaal · ${fmt1(w)}kg` };
+  saveManualBwPoint(point);
+  renderBwChart([], loadManualBwPoints());
+  latestBodyweightKg = w;
+  updateBenchRatio(latestBenchE1rmGlobal, w);
   const delta = w - target;
-  note.textContent = `Doelgewicht voor week ${wk}: ${fmt1(target)} kg. Jij zit op ${fmt1(w)} kg (${delta>=0?"+":""}${fmt1(delta)} kg t.o.v. doel).`;
+  note.textContent = `Doelgewicht voor week ${wk}: ${fmt1(target)} kg. Jij zit op ${fmt1(w)} kg (${delta>=0?"+":""}${fmt1(delta)} kg t.o.v. doel). Lokaal opgeslagen op dit toestel.`;
 });
 </script>
 </body>
